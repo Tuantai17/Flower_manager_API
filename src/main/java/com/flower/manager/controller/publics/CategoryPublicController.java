@@ -1,5 +1,6 @@
 package com.flower.manager.controller.publics;
 
+import com.flower.manager.dto.ApiResponse;
 import com.flower.manager.dto.CategoryDTO;
 import com.flower.manager.dto.CategoryMenuDTO;
 import com.flower.manager.service.CategoryService;
@@ -22,12 +23,21 @@ public class CategoryPublicController {
     private final CategoryService service;
 
     /**
+     * Lấy tất cả danh mục
+     * GET /api/categories
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<CategoryDTO>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.success(service.getAll()));
+    }
+
+    /**
      * Lấy menu danh mục (đa cấp cha-con)
      * GET /api/categories/menu
      */
     @GetMapping("/menu")
-    public ResponseEntity<List<CategoryMenuDTO>> getMenu() {
-        return ResponseEntity.ok(service.getMenu());
+    public ResponseEntity<ApiResponse<List<CategoryMenuDTO>>> getMenu() {
+        return ResponseEntity.ok(ApiResponse.success(service.getMenu()));
     }
 
     /**
@@ -35,8 +45,8 @@ public class CategoryPublicController {
      * GET /api/categories/slug/{slug}
      */
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<CategoryDTO> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(service.getBySlug(slug));
+    public ResponseEntity<ApiResponse<CategoryDTO>> getBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(service.getBySlug(slug)));
     }
 
     /**
@@ -44,8 +54,8 @@ public class CategoryPublicController {
      * GET /api/categories/{id}
      */
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getById(id));
+    public ResponseEntity<ApiResponse<CategoryDTO>> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(service.getById(id)));
     }
 
     /**
@@ -53,8 +63,8 @@ public class CategoryPublicController {
      * GET /api/categories/parents
      */
     @GetMapping("/parents")
-    public ResponseEntity<List<CategoryDTO>> getAllParents() {
-        return ResponseEntity.ok(service.getAllParentCategories());
+    public ResponseEntity<ApiResponse<List<CategoryDTO>>> getAllParents() {
+        return ResponseEntity.ok(ApiResponse.success(service.getAllParentCategories()));
     }
 
     /**
@@ -62,8 +72,8 @@ public class CategoryPublicController {
      * GET /api/categories/children/{parentId}
      */
     @GetMapping("/children/{parentId}")
-    public ResponseEntity<List<CategoryDTO>> getChildren(@PathVariable Long parentId) {
-        return ResponseEntity.ok(service.getChildrenByParentId(parentId));
+    public ResponseEntity<ApiResponse<List<CategoryDTO>>> getChildren(@PathVariable Long parentId) {
+        return ResponseEntity.ok(ApiResponse.success(service.getChildrenByParentId(parentId)));
     }
 
     /**
@@ -71,7 +81,7 @@ public class CategoryPublicController {
      * GET /api/categories/menu/{parentId}
      */
     @GetMapping("/menu/{parentId}")
-    public ResponseEntity<CategoryMenuDTO> getMenuByParentId(@PathVariable Long parentId) {
-        return ResponseEntity.ok(service.getMenuByParentId(parentId));
+    public ResponseEntity<ApiResponse<CategoryMenuDTO>> getMenuByParentId(@PathVariable Long parentId) {
+        return ResponseEntity.ok(ApiResponse.success(service.getMenuByParentId(parentId)));
     }
 }

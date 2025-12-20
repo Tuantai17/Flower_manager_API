@@ -1,6 +1,8 @@
 package com.flower.manager.service.impl;
 
+import com.flower.manager.dto.ProductCreateDTO;
 import com.flower.manager.dto.ProductDTO;
+import com.flower.manager.dto.ProductUpdateDTO;
 import com.flower.manager.entity.Category;
 import com.flower.manager.entity.Product;
 import com.flower.manager.exception.ResourceNotFoundException;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Implementation của ProductService
@@ -32,7 +35,8 @@ public class ProductServiceImpl implements ProductService {
     // ============ CRUD Operations ============
 
     @Override
-    public ProductDTO create(ProductDTO dto) {
+    public ProductDTO create(ProductCreateDTO dto) {
+        Objects.requireNonNull(dto, "ProductCreateDTO must not be null");
         log.info("Creating product: {}", dto.getName());
 
         // Kiểm tra slug đã tồn tại chưa
@@ -41,8 +45,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         // Kiểm tra category tồn tại
-        Category category = categoryRepository.findById(dto.getCategoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", dto.getCategoryId()));
+        Long categoryId = Objects.requireNonNull(dto.getCategoryId(), "Category ID must not be null");
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
 
         Product product = productMapper.toEntity(dto);
         product.setCategory(category);
@@ -54,7 +59,9 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductDTO update(Long id, ProductDTO dto) {
+    public ProductDTO update(Long id, ProductUpdateDTO dto) {
+        Objects.requireNonNull(id, "Product ID must not be null");
+        Objects.requireNonNull(dto, "ProductUpdateDTO must not be null");
         log.info("Updating product with ID: {}", id);
 
         Product product = productRepository.findById(id)
@@ -71,9 +78,13 @@ public class ProductServiceImpl implements ProductService {
         productMapper.updateEntity(product, dto);
 
         // Xử lý thay đổi category
-        if (dto.getCategoryId() != null && !dto.getCategoryId().equals(product.getCategory().getId())) {
-            Category newCategory = categoryRepository.findById(dto.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", dto.getCategoryId()));
+        Long newCategoryId = dto.getCategoryId();
+        Category currentCategory = product.getCategory();
+        Long currentCategoryId = currentCategory != null ? currentCategory.getId() : null;
+
+        if (newCategoryId != null && !newCategoryId.equals(currentCategoryId)) {
+            Category newCategory = categoryRepository.findById(newCategoryId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", newCategoryId));
             product.setCategory(newCategory);
         }
 
@@ -85,6 +96,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public void delete(Long id) {
+        Objects.requireNonNull(id, "Product ID must not be null");
         log.info("Deleting product with ID: {}", id);
 
         Product product = productRepository.findById(id)
@@ -97,6 +109,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public ProductDTO getById(Long id) {
+        Objects.requireNonNull(id, "Product ID must not be null");
         log.info("Getting product by ID: {}", id);
 
         Product product = productRepository.findById(id)
@@ -135,6 +148,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductDTO> getByCategory(Long categoryId) {
+        Objects.requireNonNull(categoryId, "Category ID must not be null");
         log.info("Getting products by category ID: {}", categoryId);
 
         // Kiểm tra category tồn tại
@@ -153,8 +167,9 @@ public class ProductServiceImpl implements ProductService {
         Category category = categoryRepository.findBySlug(categorySlug)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "slug", categorySlug));
 
+        Long categoryId = Objects.requireNonNull(category.getId(), "Category ID must not be null");
         return productMapper
-                .toDTOList(productRepository.findByCategoryIdAndActiveTrueOrderByCreatedAtDesc(category.getId()));
+                .toDTOList(productRepository.findByCategoryIdAndActiveTrueOrderByCreatedAtDesc(categoryId));
     }
 
     @Override
@@ -184,6 +199,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public boolean existsById(Long id) {
+        Objects.requireNonNull(id, "Product ID must not be null");
         return productRepository.existsById(id);
     }
 
@@ -199,6 +215,71 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(readOnly = true)
     public long countByCategory(Long categoryId) {
+        Objects.requireNonNull(categoryId, "Category ID must not be null");
         return productRepository.countByCategoryId(categoryId);
+    }
+
+    // ============ Lấy sản phẩm theo danh mục cha ============
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDTO> getByParentCategory(Long parentCategoryId) {
+        Objects.requireNonNull(parentCategoryId, "Parent Category ID must not be null");
+        log.info("Getting products by parent category ID: {}", parentCategoryId);
+
+        // Kiểm tra category cha tồn tại
+        Category parentCategory = categoryRepository.findById(parentCategoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", parentCategoryId));
+
+        // Kiểm tra đây có phải danh mục cha không (parent = null)
+        if (parentCategory.getParent() != null) {
+            log.warn("Category {} is not a parent category, returning products of this category only",
+                    parentCategoryId);
+            return productMapper.toDTOList(productRepository.findByCategoryIdWithParentCategory(parentCategoryId));
+        }
+
+        // Lấy tất cả sản phẩm từ các danh mục con
+        return productMapper.toDTOList(productRepository.findByParentCategoryIdAndActiveTrue(parentCategoryId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDTO> getByParentCategorySlug(String parentCategorySlug) {
+        log.info("Getting products by parent category slug: {}", parentCategorySlug);
+
+        Category category = categoryRepository.findBySlug(parentCategorySlug)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "slug", parentCategorySlug));
+
+        Long categoryId = Objects.requireNonNull(category.getId(), "Category ID must not be null");
+
+        // Nếu là danh mục con, chỉ lấy sản phẩm của danh mục đó
+        if (category.getParent() != null) {
+            log.info("Category {} is a child category, returning its products only", parentCategorySlug);
+            return productMapper.toDTOList(productRepository.findByCategoryIdWithParentCategory(categoryId));
+        }
+
+        // Nếu là danh mục cha, lấy tất cả sản phẩm từ các danh mục con
+        return productMapper.toDTOList(productRepository.findByParentCategorySlugAndActiveTrue(parentCategorySlug));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductDTO> getByCategoryIncludingChildren(Long categoryId) {
+        Objects.requireNonNull(categoryId, "Category ID must not be null");
+        log.info("Getting products by category (including children) ID: {}", categoryId);
+
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
+
+        // Nếu là danh mục cha (parent = null) -> lấy tất cả sản phẩm từ các danh mục
+        // con
+        if (category.getParent() == null) {
+            log.info("Category {} is a parent category, getting products from all child categories", categoryId);
+            return productMapper.toDTOList(productRepository.findByParentCategoryIdAndActiveTrue(categoryId));
+        }
+
+        // Nếu là danh mục con -> chỉ lấy sản phẩm của danh mục đó
+        log.info("Category {} is a child category, getting products of this category only", categoryId);
+        return productMapper.toDTOList(productRepository.findByCategoryIdWithParentCategory(categoryId));
     }
 }

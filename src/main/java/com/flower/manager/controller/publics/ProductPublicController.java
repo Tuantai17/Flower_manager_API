@@ -1,5 +1,6 @@
 package com.flower.manager.controller.publics;
 
+import com.flower.manager.dto.ApiResponse;
 import com.flower.manager.dto.ProductDTO;
 import com.flower.manager.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +26,8 @@ public class ProductPublicController {
      * GET /api/products
      */
     @GetMapping
-    public ResponseEntity<List<ProductDTO>> getAll() {
-        return ResponseEntity.ok(productService.getAllActive());
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.success(productService.getAllActive()));
     }
 
     /**
@@ -34,8 +35,8 @@ public class ProductPublicController {
      * GET /api/products/{id}
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getById(id));
+    public ResponseEntity<ApiResponse<ProductDTO>> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getById(id)));
     }
 
     /**
@@ -43,8 +44,8 @@ public class ProductPublicController {
      * GET /api/products/slug/{slug}
      */
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<ProductDTO> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(productService.getBySlug(slug));
+    public ResponseEntity<ApiResponse<ProductDTO>> getBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getBySlug(slug)));
     }
 
     /**
@@ -52,8 +53,8 @@ public class ProductPublicController {
      * GET /api/products/category/{categoryId}
      */
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<List<ProductDTO>> getByCategory(@PathVariable Long categoryId) {
-        return ResponseEntity.ok(productService.getByCategory(categoryId));
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategory(@PathVariable Long categoryId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getByCategory(categoryId)));
     }
 
     /**
@@ -61,8 +62,8 @@ public class ProductPublicController {
      * GET /api/products/category/slug/{categorySlug}
      */
     @GetMapping("/category/slug/{categorySlug}")
-    public ResponseEntity<List<ProductDTO>> getByCategorySlug(@PathVariable String categorySlug) {
-        return ResponseEntity.ok(productService.getByCategorySlug(categorySlug));
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategorySlug(@PathVariable String categorySlug) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getByCategorySlug(categorySlug)));
     }
 
     /**
@@ -70,8 +71,8 @@ public class ProductPublicController {
      * GET /api/products/search?keyword=xxx
      */
     @GetMapping("/search")
-    public ResponseEntity<List<ProductDTO>> search(@RequestParam String keyword) {
-        return ResponseEntity.ok(productService.searchByName(keyword));
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> search(@RequestParam String keyword) {
+        return ResponseEntity.ok(ApiResponse.success(productService.searchByName(keyword)));
     }
 
     /**
@@ -79,8 +80,8 @@ public class ProductPublicController {
      * GET /api/products/on-sale
      */
     @GetMapping("/on-sale")
-    public ResponseEntity<List<ProductDTO>> getOnSale() {
-        return ResponseEntity.ok(productService.getOnSaleProducts());
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getOnSale() {
+        return ResponseEntity.ok(ApiResponse.success(productService.getOnSaleProducts()));
     }
 
     /**
@@ -88,7 +89,50 @@ public class ProductPublicController {
      * GET /api/products/latest?limit=10
      */
     @GetMapping("/latest")
-    public ResponseEntity<List<ProductDTO>> getLatest(@RequestParam(defaultValue = "10") int limit) {
-        return ResponseEntity.ok(productService.getLatestProducts(limit));
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getLatest(@RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getLatestProducts(limit)));
+    }
+
+    // ============ Lấy sản phẩm theo danh mục cha ============
+
+    /**
+     * Lấy sản phẩm theo danh mục cha (bao gồm tất cả sản phẩm từ các danh mục con)
+     * Ví dụ: GET /api/products/parent-category/1 -> lấy tất cả sản phẩm của "Hoa
+     * tươi" (bao gồm "Hoa bó", "Hoa giỏ")
+     * GET /api/products/parent-category/{parentCategoryId}
+     */
+    @GetMapping("/parent-category/{parentCategoryId}")
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getByParentCategory(@PathVariable Long parentCategoryId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getByParentCategory(parentCategoryId)));
+    }
+
+    /**
+     * Lấy sản phẩm theo slug danh mục cha
+     * Ví dụ: GET /api/products/parent-category/slug/hoa-tuoi -> lấy tất cả sản phẩm
+     * của "Hoa tươi"
+     * GET /api/products/parent-category/slug/{parentCategorySlug}
+     */
+    @GetMapping("/parent-category/slug/{parentCategorySlug}")
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getByParentCategorySlug(
+            @PathVariable String parentCategorySlug) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getByParentCategorySlug(parentCategorySlug)));
+    }
+
+    /**
+     * Lấy sản phẩm theo danh mục - TỰ ĐỘNG phân biệt danh mục cha/con
+     * - Nếu truyền ID danh mục cha -> trả về tất cả sản phẩm từ các danh mục con
+     * - Nếu truyền ID danh mục con -> chỉ trả về sản phẩm của danh mục đó
+     * 
+     * Ví dụ:
+     * GET /api/products/category-auto/1 -> "Hoa tươi" (cha) -> trả về tất cả sản
+     * phẩm "Hoa bó" + "Hoa giỏ"
+     * GET /api/products/category-auto/2 -> "Hoa bó" (con) -> chỉ trả về sản phẩm
+     * "Hoa bó"
+     * 
+     * GET /api/products/category-auto/{categoryId}
+     */
+    @GetMapping("/category-auto/{categoryId}")
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategoryAuto(@PathVariable Long categoryId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getByCategoryIncludingChildren(categoryId)));
     }
 }

@@ -1,6 +1,8 @@
 package com.flower.manager.service;
 
+import com.flower.manager.dto.ProductCreateDTO;
 import com.flower.manager.dto.ProductDTO;
+import com.flower.manager.dto.ProductUpdateDTO;
 
 import java.util.List;
 
@@ -18,7 +20,7 @@ public interface ProductService {
      * @param dto thông tin sản phẩm
      * @return sản phẩm đã tạo
      */
-    ProductDTO create(ProductDTO dto);
+    ProductDTO create(ProductCreateDTO dto);
 
     /**
      * Cập nhật sản phẩm
@@ -27,7 +29,7 @@ public interface ProductService {
      * @param dto thông tin cập nhật
      * @return sản phẩm đã cập nhật
      */
-    ProductDTO update(Long id, ProductDTO dto);
+    ProductDTO update(Long id, ProductUpdateDTO dto);
 
     /**
      * Xóa sản phẩm
@@ -133,4 +135,34 @@ public interface ProductService {
      * @return số lượng sản phẩm
      */
     long countByCategory(Long categoryId);
+
+    // ============ Lấy sản phẩm theo danh mục cha ============
+
+    /**
+     * Lấy sản phẩm theo danh mục cha (bao gồm tất cả sản phẩm từ các danh mục con)
+     * Sử dụng khi click vào danh mục cha như "Hoa tươi" để hiển thị tất cả "Hoa
+     * bó", "Hoa giỏ"
+     *
+     * @param parentCategoryId ID danh mục cha
+     * @return danh sách sản phẩm thuộc tất cả danh mục con
+     */
+    List<ProductDTO> getByParentCategory(Long parentCategoryId);
+
+    /**
+     * Lấy sản phẩm theo slug danh mục cha
+     *
+     * @param parentCategorySlug slug danh mục cha
+     * @return danh sách sản phẩm thuộc tất cả danh mục con
+     */
+    List<ProductDTO> getByParentCategorySlug(String parentCategorySlug);
+
+    /**
+     * Lấy sản phẩm theo danh mục - tự động phân biệt danh mục cha/con
+     * Nếu là danh mục cha -> lấy tất cả sản phẩm từ các danh mục con
+     * Nếu là danh mục con -> chỉ lấy sản phẩm của danh mục đó
+     *
+     * @param categoryId ID danh mục
+     * @return danh sách sản phẩm
+     */
+    List<ProductDTO> getByCategoryIncludingChildren(Long categoryId);
 }

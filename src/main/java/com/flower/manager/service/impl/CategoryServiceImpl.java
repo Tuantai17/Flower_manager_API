@@ -1,8 +1,11 @@
 package com.flower.manager.service.impl;
 
+import com.flower.manager.dto.CategoryCreateDTO;
 import com.flower.manager.dto.CategoryDTO;
 import com.flower.manager.dto.CategoryMenuDTO;
+import com.flower.manager.dto.CategoryUpdateDTO;
 import com.flower.manager.entity.Category;
+import com.flower.manager.exception.ResourceNotFoundException;
 import com.flower.manager.mapper.CategoryMapper;
 import com.flower.manager.repository.CategoryRepository;
 import com.flower.manager.service.CategoryService;
@@ -12,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Implementation của CategoryService
@@ -29,7 +33,8 @@ public class CategoryServiceImpl implements CategoryService {
     // ============ CRUD Operations ============
 
     @Override
-    public CategoryDTO create(CategoryDTO dto) {
+    public CategoryDTO create(CategoryCreateDTO dto) {
+        Objects.requireNonNull(dto, "CategoryCreateDTO must not be null");
         log.info("Creating category: {}", dto.getName());
 
         // Kiểm tra slug đã tồn tại chưa
@@ -40,10 +45,10 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = mapper.toEntity(dto);
 
         // Nếu có parentId -> đây là danh mục con (cấp 2)
-        if (dto.getParentId() != null) {
-            Category parent = repository.findById(dto.getParentId())
-                    .orElseThrow(
-                            () -> new RuntimeException("Không tìm thấy danh mục cha với ID: " + dto.getParentId()));
+        Long parentId = dto.getParentId();
+        if (parentId != null) {
+            Category parent = repository.findById(parentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", parentId));
 
             // Kiểm tra parent không phải là danh mục con (chỉ cho phép 2 cấp)
             if (parent.getParent() != null) {
@@ -61,11 +66,13 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public CategoryDTO update(Long id, CategoryDTO dto) {
+    public CategoryDTO update(Long id, CategoryUpdateDTO dto) {
+        Objects.requireNonNull(id, "Category ID must not be null");
+        Objects.requireNonNull(dto, "CategoryUpdateDTO must not be null");
         log.info("Updating category with ID: {}", id);
 
         Category category = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
 
         // Kiểm tra slug nếu có thay đổi
         if (dto.getSlug() != null && !dto.getSlug().equals(category.getSlug())) {
@@ -78,15 +85,15 @@ public class CategoryServiceImpl implements CategoryService {
         mapper.updateEntity(category, dto);
 
         // Xử lý thay đổi parent
-        if (dto.getParentId() != null) {
+        Long parentId = dto.getParentId();
+        if (parentId != null) {
             // Không cho phép set parent là chính nó
-            if (dto.getParentId().equals(id)) {
+            if (parentId.equals(id)) {
                 throw new IllegalArgumentException("Danh mục không thể là cha của chính nó");
             }
 
-            Category newParent = repository.findById(dto.getParentId())
-                    .orElseThrow(
-                            () -> new RuntimeException("Không tìm thấy danh mục cha với ID: " + dto.getParentId()));
+            Category newParent = repository.findById(parentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Category", "id", parentId));
 
             // Kiểm tra parent không phải là danh mục con (chỉ cho phép 2 cấp)
             if (newParent.getParent() != null) {
@@ -115,6 +122,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public void delete(Long id) {
+        Objects.requireNonNull(id, "Category ID must not be null");
         log.info("Deleting category with ID: {}", id);
 
         Category category = repository.findById(id)
@@ -133,10 +141,11 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public CategoryDTO getById(Long id) {
+        Objects.requireNonNull(id, "Category ID must not be null");
         log.info("Getting category by ID: {}", id);
 
         Category category = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", id));
 
         return mapper.toDTO(category);
     }
@@ -147,7 +156,7 @@ public class CategoryServiceImpl implements CategoryService {
         log.info("Getting category by slug: {}", slug);
 
         Category category = repository.findBySlug(slug)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với slug: " + slug));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "slug", slug));
 
         return mapper.toDTO(category);
     }
@@ -171,6 +180,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public List<CategoryDTO> getChildrenByParentId(Long parentId) {
+        Objects.requireNonNull(parentId, "Parent ID must not be null");
         log.info("Getting children by parent ID: {}", parentId);
         return mapper.toDTOList(repository.findByParentIdOrderBySortOrderAsc(parentId));
     }
@@ -194,10 +204,11 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public CategoryMenuDTO getMenuByParentId(Long parentId) {
+        Objects.requireNonNull(parentId, "Parent ID must not be null");
         log.info("Getting menu by parent ID: {}", parentId);
 
         Category category = repository.findById(parentId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục với ID: " + parentId));
+                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", parentId));
 
         return buildMenu(category);
     }
@@ -206,8 +217,10 @@ public class CategoryServiceImpl implements CategoryService {
      * Build menu đệ quy (hỗ trợ đa cấp)
      */
     private CategoryMenuDTO buildMenu(Category category) {
+        Long categoryId = Objects.requireNonNull(category.getId(), "Category ID must not be null");
+
         CategoryMenuDTO dto = CategoryMenuDTO.builder()
-                .id(category.getId())
+                .id(categoryId)
                 .name(category.getName())
                 .slug(category.getSlug())
                 .description(category.getDescription())
@@ -215,7 +228,7 @@ public class CategoryServiceImpl implements CategoryService {
                 .build();
 
         // Lấy danh mục con active
-        List<Category> children = repository.findByParentIdAndActiveTrueOrderBySortOrderAsc(category.getId());
+        List<Category> children = repository.findByParentIdAndActiveTrueOrderBySortOrderAsc(categoryId);
 
         if (!children.isEmpty()) {
             dto.setChildren(
@@ -232,6 +245,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional(readOnly = true)
     public boolean existsById(Long id) {
+        Objects.requireNonNull(id, "Category ID must not be null");
         return repository.existsById(id);
     }
 

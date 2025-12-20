@@ -1,7 +1,9 @@
 package com.flower.manager.mapper;
 
+import com.flower.manager.dto.CategoryCreateDTO;
 import com.flower.manager.dto.CategoryDTO;
 import com.flower.manager.dto.CategoryMenuDTO;
+import com.flower.manager.dto.CategoryUpdateDTO;
 import com.flower.manager.entity.Category;
 import org.springframework.stereotype.Component;
 
@@ -86,9 +88,9 @@ public class CategoryMapper {
     // ============ DTO -> Entity ============
 
     /**
-     * Chuyển CategoryDTO sang Category entity (dùng cho create)
+     * Chuyển CategoryCreateDTO sang Category entity (dùng cho create)
      */
-    public Category toEntity(CategoryDTO dto) {
+    public Category toEntity(CategoryCreateDTO dto) {
         if (dto == null) {
             return null;
         }
@@ -105,9 +107,9 @@ public class CategoryMapper {
     }
 
     /**
-     * Cập nhật Category entity từ CategoryDTO (dùng cho update)
+     * Cập nhật Category entity từ CategoryUpdateDTO (dùng cho update)
      */
-    public void updateEntity(Category category, CategoryDTO dto) {
+    public void updateEntity(Category category, CategoryUpdateDTO dto) {
         if (dto.getName() != null) {
             category.setName(dto.getName());
         }

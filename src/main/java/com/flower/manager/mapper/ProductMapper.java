@@ -1,6 +1,8 @@
 package com.flower.manager.mapper;
 
+import com.flower.manager.dto.ProductCreateDTO;
 import com.flower.manager.dto.ProductDTO;
+import com.flower.manager.dto.ProductUpdateDTO;
 import com.flower.manager.entity.Product;
 import org.springframework.stereotype.Component;
 
@@ -18,10 +20,22 @@ public class ProductMapper {
 
     /**
      * Chuyển Product entity sang ProductDTO
+     * Bao gồm thông tin danh mục cha nếu có
      */
     public ProductDTO toDTO(Product product) {
         if (product == null) {
             return null;
+        }
+
+        // Lấy thông tin danh mục cha nếu có
+        Long parentCategoryId = null;
+        String parentCategoryName = null;
+        String parentCategorySlug = null;
+
+        if (product.getCategory() != null && product.getCategory().getParent() != null) {
+            parentCategoryId = product.getCategory().getParent().getId();
+            parentCategoryName = product.getCategory().getParent().getName();
+            parentCategorySlug = product.getCategory().getParent().getSlug();
         }
 
         return ProductDTO.builder()
@@ -38,6 +52,9 @@ public class ProductMapper {
                 .categoryId(product.getCategory() != null ? product.getCategory().getId() : null)
                 .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
                 .categorySlug(product.getCategory() != null ? product.getCategory().getSlug() : null)
+                .parentCategoryId(parentCategoryId)
+                .parentCategoryName(parentCategoryName)
+                .parentCategorySlug(parentCategorySlug)
                 .onSale(product.isOnSale())
                 .currentPrice(product.getCurrentPrice())
                 .build();
@@ -55,10 +72,10 @@ public class ProductMapper {
     // ============ DTO -> Entity ============
 
     /**
-     * Chuyển ProductDTO sang Product entity (dùng cho create)
+     * Chuyển ProductCreateDTO sang Product entity (dùng cho create)
      * Lưu ý: category sẽ được set trong service layer
      */
-    public Product toEntity(ProductDTO dto) {
+    public Product toEntity(ProductCreateDTO dto) {
         if (dto == null) {
             return null;
         }
@@ -78,9 +95,9 @@ public class ProductMapper {
     }
 
     /**
-     * Cập nhật Product entity từ ProductDTO (dùng cho update)
+     * Cập nhật Product entity từ ProductUpdateDTO (dùng cho update)
      */
-    public void updateEntity(Product product, ProductDTO dto) {
+    public void updateEntity(Product product, ProductUpdateDTO dto) {
         if (dto.getName() != null) {
             product.setName(dto.getName());
         }

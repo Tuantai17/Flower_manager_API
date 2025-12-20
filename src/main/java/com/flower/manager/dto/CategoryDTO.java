@@ -41,7 +41,9 @@ public class CategoryDTO {
 
     private String parentName;
 
+    @Builder.Default
     private Boolean active = true;
 
+    @Builder.Default
     private Integer sortOrder = 0;
 }

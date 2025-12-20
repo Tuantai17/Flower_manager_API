@@ -1,7 +1,9 @@
 package com.flower.manager.service;
 
+import com.flower.manager.dto.CategoryCreateDTO;
 import com.flower.manager.dto.CategoryDTO;
 import com.flower.manager.dto.CategoryMenuDTO;
+import com.flower.manager.dto.CategoryUpdateDTO;
 
 import java.util.List;
 
@@ -18,7 +20,7 @@ public interface CategoryService {
      * @param dto thông tin danh mục
      * @return danh mục đã tạo
      */
-    CategoryDTO create(CategoryDTO dto);
+    CategoryDTO create(CategoryCreateDTO dto);
 
     /**
      * Cập nhật danh mục
@@ -27,7 +29,7 @@ public interface CategoryService {
      * @param dto thông tin cập nhật
      * @return danh mục đã cập nhật
      */
-    CategoryDTO update(Long id, CategoryDTO dto);
+    CategoryDTO update(Long id, CategoryUpdateDTO dto);
 
     /**
      * Xóa danh mục

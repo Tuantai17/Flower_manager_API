@@ -41,6 +41,7 @@ public class ProductDTO {
     private String thumbnail;
 
     @Min(value = 0, message = "Số lượng tồn kho không được âm")
+    @Builder.Default
     private Integer stockQuantity = 0;
 
     /**
@@ -51,8 +52,10 @@ public class ProductDTO {
      */
     @Min(value = 0, message = "Status không hợp lệ")
     @Max(value = 2, message = "Status không hợp lệ")
+    @Builder.Default
     private Integer status = 1;
 
+    @Builder.Default
     private Boolean active = true;
 
     /**
@@ -70,6 +73,23 @@ public class ProductDTO {
      * Slug danh mục (read-only)
      */
     private String categorySlug;
+
+    /**
+     * ID danh mục cha (read-only)
+     * Nếu categoryId là danh mục con, đây là ID của danh mục cha
+     * Nếu categoryId là danh mục cha, đây sẽ là null
+     */
+    private Long parentCategoryId;
+
+    /**
+     * Tên danh mục cha (read-only)
+     */
+    private String parentCategoryName;
+
+    /**
+     * Slug danh mục cha (read-only)
+     */
+    private String parentCategorySlug;
 
     /**
      * Sản phẩm có đang giảm giá không (read-only)

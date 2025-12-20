@@ -1,11 +1,15 @@
 package com.flower.manager.controller.admin;
 
+import com.flower.manager.dto.ApiResponse;
+import com.flower.manager.dto.ProductCreateDTO;
 import com.flower.manager.dto.ProductDTO;
+import com.flower.manager.dto.ProductUpdateDTO;
 import com.flower.manager.service.ProductService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -18,6 +22,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/admin/products")
+@PreAuthorize("hasRole('ADMIN')") // Thêm dòng này
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 public class ProductAdminController {
@@ -45,9 +50,10 @@ public class ProductAdminController {
      * }
      */
     @PostMapping
-    public ResponseEntity<ProductDTO> create(@Valid @RequestBody ProductDTO dto) {
+    public ResponseEntity<ApiResponse<ProductDTO>> create(@Valid @RequestBody ProductCreateDTO dto) {
         ProductDTO created = productService.create(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.created(created, "Tạo sản phẩm thành công"));
     }
 
     // ============ READ ============
@@ -57,8 +63,8 @@ public class ProductAdminController {
      * GET /api/admin/products
      */
     @GetMapping
-    public ResponseEntity<List<ProductDTO>> getAll() {
-        return ResponseEntity.ok(productService.getAll());
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getAll() {
+        return ResponseEntity.ok(ApiResponse.success(productService.getAll()));
     }
 
     /**
@@ -66,8 +72,8 @@ public class ProductAdminController {
      * GET /api/admin/products/{id}
      */
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(productService.getById(id));
+    public ResponseEntity<ApiResponse<ProductDTO>> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getById(id)));
     }
 
     /**
@@ -75,8 +81,8 @@ public class ProductAdminController {
      * GET /api/admin/products/slug/{slug}
      */
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<ProductDTO> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(productService.getBySlug(slug));
+    public ResponseEntity<ApiResponse<ProductDTO>> getBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getBySlug(slug)));
     }
 
     /**
@@ -84,8 +90,8 @@ public class ProductAdminController {
      * GET /api/admin/products/category/{categoryId}
      */
     @GetMapping("/category/{categoryId}")
-    public ResponseEntity<List<ProductDTO>> getByCategory(@PathVariable Long categoryId) {
-        return ResponseEntity.ok(productService.getByCategory(categoryId));
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategory(@PathVariable Long categoryId) {
+        return ResponseEntity.ok(ApiResponse.success(productService.getByCategory(categoryId)));
     }
 
     /**
@@ -93,8 +99,8 @@ public class ProductAdminController {
      * GET /api/admin/products/search?keyword=xxx
      */
     @GetMapping("/search")
-    public ResponseEntity<List<ProductDTO>> search(@RequestParam String keyword) {
-        return ResponseEntity.ok(productService.searchByName(keyword));
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> search(@RequestParam String keyword) {
+        return ResponseEntity.ok(ApiResponse.success(productService.searchByName(keyword)));
     }
 
     // ============ UPDATE ============
@@ -104,11 +110,11 @@ public class ProductAdminController {
      * PUT /api/admin/products/{id}
      */
     @PutMapping("/{id}")
-    public ResponseEntity<ProductDTO> update(
+    public ResponseEntity<ApiResponse<ProductDTO>> update(
             @PathVariable Long id,
-            @Valid @RequestBody ProductDTO dto) {
+            @Valid @RequestBody ProductUpdateDTO dto) {
         ProductDTO updated = productService.update(id, dto);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(ApiResponse.success(updated, "Cập nhật sản phẩm thành công"));
     }
 
     // ============ DELETE ============
@@ -118,14 +124,9 @@ public class ProductAdminController {
      * DELETE /api/admin/products/{id}
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, String>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         productService.delete(id);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "Xóa sản phẩm thành công");
-        response.put("id", id.toString());
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.success(null, "Xóa sản phẩm thành công"));
     }
 
     // ============ UTILITY ============
