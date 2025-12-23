@@ -1,8 +1,8 @@
 package com.flower.manager.mapper;
 
-import com.flower.manager.dto.ProductCreateDTO;
-import com.flower.manager.dto.ProductDTO;
-import com.flower.manager.dto.ProductUpdateDTO;
+import com.flower.manager.dto.product.ProductCreateDTO;
+import com.flower.manager.dto.product.ProductDTO;
+import com.flower.manager.dto.product.ProductUpdateDTO;
 import com.flower.manager.entity.Product;
 import org.springframework.stereotype.Component;
 

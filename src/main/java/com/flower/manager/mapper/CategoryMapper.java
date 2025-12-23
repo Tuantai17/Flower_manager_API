@@ -1,9 +1,9 @@
 package com.flower.manager.mapper;
 
-import com.flower.manager.dto.CategoryCreateDTO;
-import com.flower.manager.dto.CategoryDTO;
-import com.flower.manager.dto.CategoryMenuDTO;
-import com.flower.manager.dto.CategoryUpdateDTO;
+import com.flower.manager.dto.category.CategoryCreateDTO;
+import com.flower.manager.dto.category.CategoryDTO;
+import com.flower.manager.dto.category.CategoryMenuDTO;
+import com.flower.manager.dto.category.CategoryUpdateDTO;
 import com.flower.manager.entity.Category;
 import org.springframework.stereotype.Component;
 

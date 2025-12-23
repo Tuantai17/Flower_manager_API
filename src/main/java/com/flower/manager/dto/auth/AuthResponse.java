@@ -1,6 +1,5 @@
 package com.flower.manager.dto.auth;
 
-import com.flower.manager.dto.UserDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

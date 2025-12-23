@@ -128,6 +128,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         // Static resources
                         .requestMatchers("/index.html", "/static/**", "/favicon.ico", "/error").permitAll()
+                        // Uploaded files - public access for images
+                        .requestMatchers("/uploads/**").permitAll()
                         // Swagger/OpenAPI (nếu có)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                         // Admin endpoints - chỉ ADMIN mới có quyền

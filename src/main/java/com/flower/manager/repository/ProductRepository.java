@@ -150,4 +150,81 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                         "WHERE parent.slug = :parentCategorySlug AND p.active = true " +
                         "ORDER BY p.createdAt DESC")
         List<Product> findByParentCategorySlugAndActiveTrue(@Param("parentCategorySlug") String parentCategorySlug);
+
+        // ============ Advanced Search ============
+
+        /**
+         * Tìm kiếm nâng cao với filter: keyword, priceFrom, priceTo, categoryId
+         * Sắp xếp theo giá tăng dần
+         */
+        @Query("SELECT p FROM Product p " +
+                        "LEFT JOIN FETCH p.category c " +
+                        "WHERE p.active = true " +
+                        "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+                        "AND (:priceFrom IS NULL OR COALESCE(p.salePrice, p.price) >= :priceFrom) " +
+                        "AND (:priceTo IS NULL OR COALESCE(p.salePrice, p.price) <= :priceTo) " +
+                        "AND (:categoryId IS NULL OR c.id = :categoryId OR c.parent.id = :categoryId) " +
+                        "ORDER BY COALESCE(p.salePrice, p.price) ASC")
+        List<Product> advancedSearchOrderByPriceAsc(
+                        @Param("keyword") String keyword,
+                        @Param("priceFrom") java.math.BigDecimal priceFrom,
+                        @Param("priceTo") java.math.BigDecimal priceTo,
+                        @Param("categoryId") Long categoryId);
+
+        /**
+         * Tìm kiếm nâng cao - sắp xếp theo giá giảm dần
+         */
+        @Query("SELECT p FROM Product p " +
+                        "LEFT JOIN FETCH p.category c " +
+                        "WHERE p.active = true " +
+                        "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+                        "AND (:priceFrom IS NULL OR COALESCE(p.salePrice, p.price) >= :priceFrom) " +
+                        "AND (:priceTo IS NULL OR COALESCE(p.salePrice, p.price) <= :priceTo) " +
+                        "AND (:categoryId IS NULL OR c.id = :categoryId OR c.parent.id = :categoryId) " +
+                        "ORDER BY COALESCE(p.salePrice, p.price) DESC")
+        List<Product> advancedSearchOrderByPriceDesc(
+                        @Param("keyword") String keyword,
+                        @Param("priceFrom") java.math.BigDecimal priceFrom,
+                        @Param("priceTo") java.math.BigDecimal priceTo,
+                        @Param("categoryId") Long categoryId);
+
+        /**
+         * Tìm kiếm nâng cao - sắp xếp theo mới nhất
+         */
+        @Query("SELECT p FROM Product p " +
+                        "LEFT JOIN FETCH p.category c " +
+                        "WHERE p.active = true " +
+                        "AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+                        "AND (:priceFrom IS NULL OR COALESCE(p.salePrice, p.price) >= :priceFrom) " +
+                        "AND (:priceTo IS NULL OR COALESCE(p.salePrice, p.price) <= :priceTo) " +
+                        "AND (:categoryId IS NULL OR c.id = :categoryId OR c.parent.id = :categoryId) " +
+                        "ORDER BY p.createdAt DESC")
+        List<Product> advancedSearchOrderByNewest(
+                        @Param("keyword") String keyword,
+                        @Param("priceFrom") java.math.BigDecimal priceFrom,
+                        @Param("priceTo") java.math.BigDecimal priceTo,
+                        @Param("categoryId") Long categoryId);
+
+        // ============ Best Selling ============
+
+        /**
+         * Lấy danh sách Product ID bán chạy nhất (dựa trên tổng quantity trong
+         * OrderItem)
+         * Chỉ tính các đơn hàng đã COMPLETED hoặc DELIVERED
+         */
+        @Query("SELECT oi.product.id FROM OrderItem oi " +
+                        "JOIN oi.order o " +
+                        "WHERE o.status IN (com.flower.manager.enums.OrderStatus.COMPLETED, com.flower.manager.enums.OrderStatus.DELIVERED) "
+                        +
+                        "GROUP BY oi.product.id " +
+                        "ORDER BY SUM(oi.quantity) DESC")
+        List<Long> findBestSellingProductIds();
+
+        /**
+         * Lấy sản phẩm theo danh sách ID
+         */
+        @Query("SELECT p FROM Product p " +
+                        "LEFT JOIN FETCH p.category c " +
+                        "WHERE p.id IN :ids AND p.active = true")
+        List<Product> findByIdIn(@Param("ids") List<Long> ids);
 }

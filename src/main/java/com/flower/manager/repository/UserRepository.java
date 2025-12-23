@@ -62,4 +62,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Kiểm tra số điện thoại đã tồn tại (ngoại trừ user hiện tại)
      */
     Boolean existsByPhoneNumberAndIdNot(String phoneNumber, Long id);
+
+    /**
+     * Tìm kiếm users với các filter cho Admin
+     */
+    @Query("SELECT u FROM User u WHERE " +
+            "(:keyword IS NULL OR :keyword = '' OR " +
+            "LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(u.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "LOWER(u.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+            "u.phoneNumber LIKE CONCAT('%', :keyword, '%')) " +
+            "AND (:role IS NULL OR u.role = :role) " +
+            "AND (:isActive IS NULL OR u.isActive = :isActive)")
+    org.springframework.data.domain.Page<User> findWithFilters(
+            @Param("keyword") String keyword,
+            @Param("role") com.flower.manager.entity.Role role,
+            @Param("isActive") Boolean isActive,
+            org.springframework.data.domain.Pageable pageable);
+
+    /**
+     * Đếm số users theo role
+     */
+    long countByRole(com.flower.manager.entity.Role role);
 }

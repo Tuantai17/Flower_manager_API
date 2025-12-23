@@ -43,8 +43,7 @@ public class User implements UserDetails {
     @Column(name = "full_name")
     private String fullName;
 
-    @NotBlank(message = "Số điện thoại không được để trống")
-    @Column(name = "phone_number", unique = true, nullable = false)
+    @Column(name = "phone_number", unique = true)
     private String phoneNumber;
 
     private String address;

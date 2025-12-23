@@ -1,15 +1,36 @@
 package com.flower.manager.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.NonNull;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 /**
- * Cấu hình Web MVC
- * CORS đã được cấu hình trong SecurityConfig
+ * Cau hinh Web MVC
+ * - CORS da duoc cau hinh trong SecurityConfig
+ * - Cau hinh serve static files tu thu muc uploads
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-    // CORS configuration đã chuyển sang SecurityConfig để tích hợp với Spring
-    // Security
-    // Không cần cấu hình thêm ở đây
+
+    @Value("${file.upload-dir:uploads}")
+    private String uploadDir;
+
+    /**
+     * Cau hinh resource handler de serve file tu thu muc uploads
+     * URL: /uploads/** -> file:uploads/
+     */
+    @Override
+    public void addResourceHandlers(@NonNull ResourceHandlerRegistry registry) {
+        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        String uploadLocation = "file:" + uploadPath.toString() + "/";
+
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(uploadLocation)
+                .setCachePeriod(3600); // Cache 1 hour
+    }
 }
