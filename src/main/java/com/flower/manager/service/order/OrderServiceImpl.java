@@ -186,12 +186,15 @@ public class OrderServiceImpl implements OrderService {
         OrderDTO orderDTO = mapToDTO(savedOrder);
         if (request.getPaymentMethod() == PaymentMethod.MOMO) {
             try {
-                String paymentUrl = momoService.createPaymentUrl(savedOrder.getId());
-                orderDTO.setPaymentUrl(paymentUrl);
+                var momoResponse = momoService.createPaymentFromOrder(savedOrder.getId(), request.getMomoType());
+                if (momoResponse != null && momoResponse.getPayUrl() != null) {
+                    orderDTO.setPaymentUrl(momoResponse.getPayUrl());
+                }
                 log.info("Generated MoMo payment URL for order: {}", savedOrder.getOrderCode());
             } catch (Exception e) {
                 log.error("Failed to create MoMo payment URL: {}", e.getMessage());
-                // Vẫn trả về order, frontend có thể retry bằng API /api/payment/momo/{orderId}
+                // Vẫn trả về order, frontend có thể retry bằng API
+                // /api/payment/momo/create?orderId=
             }
         }
 
@@ -358,6 +361,44 @@ public class OrderServiceImpl implements OrderService {
         return mapToDTO(savedOrder);
     }
 
+    @Override
+    public OrderDTO processMomoReturn(java.util.Map<String, String> params) {
+        log.info("Processing MoMo return params: {}", params);
+
+        String orderCode = params.get("orderId");
+        int resultCode = Integer.parseInt(params.getOrDefault("resultCode", "-1"));
+
+        Order order = orderRepository.findByOrderCode(orderCode)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Đơn hàng không tồn tại: " + orderCode));
+
+        // Nếu resultCode = 0, kiểm tra và cập nhật nếu chưa được IPN xử lý
+        if (resultCode == 0) {
+            if (!order.getIsPaid()) {
+                // Cập nhật dự phòng (trong trường hợp IPN chưa được gọi)
+                String transId = params.get("transId");
+                order.setIsPaid(true);
+                order.setPaidAt(LocalDateTime.now());
+                order.setTransactionId(transId);
+                order.setStatus(OrderStatus.CONFIRMED);
+                orderRepository.save(order);
+
+                log.info("Confirmed payment via redirect (backup) for order: {}", orderCode);
+
+                try {
+                    sendPaymentConfirmationEmail(order);
+                } catch (Exception e) {
+                    log.error("Failed to send payment confirmation email: {}", e.getMessage());
+                }
+            }
+            return mapToDTO(order);
+        } else {
+            // Nếu thanh toán thất bại, vẫn trả về order để frontend hiển thị
+            log.warn("MoMo payment failed for order: {} with resultCode: {}", orderCode, resultCode);
+            // Trả về order với trạng thái hiện tại thay vì throw exception
+            return mapToDTO(order);
+        }
+    }
+
     // ================= HELPER METHODS =================
 
     /**
@@ -443,7 +484,7 @@ public class OrderServiceImpl implements OrderService {
         return OrderDTO.builder()
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
-                .userId(order.getUser().getId())
+                .userId(order.getUser() != null ? order.getUser().getId() : null)
                 .customerName(order.getCustomerName())
                 .customerPhone(order.getCustomerPhone())
                 .customerEmail(order.getCustomerEmail())

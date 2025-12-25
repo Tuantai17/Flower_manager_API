@@ -50,6 +50,11 @@ public interface OrderService {
     OrderDTO confirmPayment(Long orderId, String transactionId);
 
     /**
+     * Xử lý kết quả trả về từ MoMo (redirect URL)
+     */
+    OrderDTO processMomoReturn(java.util.Map<String, String> params);
+
+    /**
      * Chuyển đổi Entity sang DTO
      */
     OrderDTO mapToDTO(Order order);

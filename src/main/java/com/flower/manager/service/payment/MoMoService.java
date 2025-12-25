@@ -1,7 +1,6 @@
 package com.flower.manager.service.payment;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flower.manager.dto.payment.MomoPaymentResponse;
 import com.flower.manager.entity.Order;
 import com.flower.manager.exception.BusinessException;
 import com.flower.manager.repository.OrderRepository;
@@ -15,10 +14,12 @@ import org.springframework.web.client.RestTemplate;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Formatter;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Service tích hợp thanh toán MoMo
+ * Sử dụng MoMo API v2
  */
 @Service
 @RequiredArgsConstructor
@@ -26,31 +27,30 @@ import java.util.Formatter;
 public class MoMoService {
 
     private final OrderRepository orderRepository;
-    private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${momo.partnerCode:MOMOBKUN20180529}")
+    @Value("${momo.partnerCode}")
     private String partnerCode;
 
-    @Value("${momo.accessKey:F8BBA842ECF85}")
+    @Value("${momo.accessKey}")
     private String accessKey;
 
-    @Value("${momo.secretKey:K951B6PE1waDMi640xX08PD3vg6EkVlz}")
+    @Value("${momo.secretKey}")
     private String secretKey;
 
-    @Value("${momo.endpoint:https://test-payment.momo.vn/v2/gateway/api/create}")
+    @Value("${momo.endpoint}")
     private String endpoint;
 
-    @Value("${momo.returnUrl:http://localhost:3000/payment-return}")
+    @Value("${momo.returnUrl}")
     private String returnUrl;
 
-    @Value("${momo.notifyUrl:http://localhost:8080/api/payment/momo-callback}")
+    @Value("${momo.notifyUrl}")
     private String notifyUrl;
 
     /**
-     * Tạo URL thanh toán MoMo
+     * Tạo yêu cầu thanh toán MoMo từ Order ID
      */
-    public String createPaymentUrl(Long orderId) {
+    public MomoPaymentResponse createPaymentFromOrder(Long orderId, String momoType) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Đơn hàng không tồn tại"));
 
@@ -58,83 +58,121 @@ public class MoMoService {
             throw new BusinessException("ORDER_ALREADY_PAID", "Đơn hàng đã được thanh toán");
         }
 
-        try {
-            long amount = order.getFinalPrice().longValue();
-            String orderInfo = "PayOrder" + order.getOrderCode(); // Bỏ dấu cách để tránh lỗi encoding
-            String requestId = String.valueOf(System.currentTimeMillis());
-            String orderId_str = order.getOrderCode();
-            String extraData = "";
-            String requestType = "captureWallet";
+        return createPayment(
+                order.getFinalPrice().longValue(),
+                order.getOrderCode(),
+                "Thanh toán đơn hàng " + order.getOrderCode(),
+                momoType);
+    }
 
-            // Tạo raw signature string theo đúng thứ tự Alphabet của MoMo (V2)
-            // accessKey=&amount=&extraData=&ipnUrl=&orderId=&orderInfo=&partnerCode=&redirectUrl=&requestId=&requestType=
-            String rawHash = "accessKey=" + accessKey.trim() +
+    /**
+     * Tạo yêu cầu thanh toán MoMo
+     */
+    public MomoPaymentResponse createPayment(Long amount, String orderId, String orderInfo, String momoType) {
+        try {
+            String requestId = String.valueOf(System.currentTimeMillis());
+            String extraData = "";
+
+            // 🔥 Xử lý requestType theo momoType
+            String requestType = "captureWallet"; // Mặc định là Ví (QR)
+            if ("CARD".equalsIgnoreCase(momoType)) {
+                requestType = "payWithATM"; // Thẻ ATM / Visa / Master
+            }
+
+            // Tạo raw signature theo thứ tự alphabet (MoMo v2 requirement)
+            String rawHash = "accessKey=" + accessKey +
                     "&amount=" + amount +
                     "&extraData=" + extraData +
-                    "&ipnUrl=" + notifyUrl.trim() +
-                    "&orderId=" + orderId_str +
+                    "&ipnUrl=" + notifyUrl +
+                    "&orderId=" + orderId +
                     "&orderInfo=" + orderInfo +
-                    "&partnerCode=" + partnerCode.trim() +
-                    "&redirectUrl=" + returnUrl.trim() +
+                    "&partnerCode=" + partnerCode +
+                    "&redirectUrl=" + returnUrl +
                     "&requestId=" + requestId +
                     "&requestType=" + requestType;
 
-            log.info("MoMo Raw Hash for signing: [{}]", rawHash);
-            String signature = hmacSHA256(secretKey.trim(), rawHash);
+            log.debug("MoMo Raw Hash: {}", rawHash);
+            String signature = hmacSHA256(secretKey, rawHash);
 
-            // Tạo Map cho request body
-            java.util.Map<String, Object> bodyMap = new java.util.LinkedHashMap<>();
-            bodyMap.put("partnerCode", partnerCode);
-            bodyMap.put("requestId", requestId);
-            bodyMap.put("amount", amount);
-            bodyMap.put("orderId", orderId_str);
-            bodyMap.put("orderInfo", orderInfo);
-            bodyMap.put("redirectUrl", returnUrl);
-            bodyMap.put("ipnUrl", notifyUrl);
-            bodyMap.put("lang", "vi");
-            bodyMap.put("extraData", extraData);
-            bodyMap.put("requestType", requestType);
-            bodyMap.put("signature", signature);
+            // Tạo payload
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("partnerCode", partnerCode);
+            payload.put("partnerName", "Flower Shop");
+            payload.put("storeId", partnerCode);
+            payload.put("requestId", requestId);
+            payload.put("amount", amount);
+            payload.put("orderId", orderId);
+            payload.put("orderInfo", orderInfo);
+            payload.put("redirectUrl", returnUrl);
+            payload.put("ipnUrl", notifyUrl);
+            payload.put("lang", "vi");
+            payload.put("extraData", extraData);
+            payload.put("requestType", requestType);
+            payload.put("signature", signature);
 
-            String body = objectMapper.writeValueAsString(bodyMap);
-            log.info("MoMo Request Body: {}", body);
+            log.info("Creating MoMo payment for order: {}, amount: {}", orderId, amount);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            HttpEntity<String> entity = new HttpEntity<>(body, headers);
-            ResponseEntity<String> response = restTemplate.exchange(endpoint, HttpMethod.POST, entity, String.class);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            ResponseEntity<MomoPaymentResponse> response = restTemplate.postForEntity(
+                    endpoint, entity, MomoPaymentResponse.class);
 
-            JsonNode json = objectMapper.readTree(response.getBody());
+            MomoPaymentResponse momoResponse = response.getBody();
 
-            int resultCode = json.get("resultCode").asInt();
-            if (resultCode != 0) {
-                String message = json.get("message").asText();
-                log.error("MoMo payment error: {} - {}", resultCode, message);
-                throw new BusinessException("MOMO_ERROR", "Lỗi thanh toán MoMo: " + message);
+            if (momoResponse != null && momoResponse.getResultCode() != 0) {
+                log.error("MoMo payment error: {} - {}", momoResponse.getResultCode(), momoResponse.getMessage());
+                throw new BusinessException("MOMO_ERROR", "Lỗi thanh toán MoMo: " + momoResponse.getMessage());
             }
 
-            String payUrl = json.get("payUrl").asText();
-            log.info("Created MoMo payment URL for order: {}", order.getOrderCode());
-            return payUrl;
+            log.info("MoMo payment URL created successfully for order: {}", orderId);
+            return momoResponse;
 
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Error creating MoMo payment: {}", e.getMessage());
+            log.error("Error creating MoMo payment: {}", e.getMessage(), e);
             throw new BusinessException("MOMO_ERROR", "Không thể tạo thanh toán MoMo: " + e.getMessage());
         }
     }
 
     /**
-     * Xác thực callback từ MoMo
+     * Xác thực chữ ký callback từ MoMo (dùng cho IPN - Map<String, Object>)
      */
-    public boolean verifyCallback(String rawData, String signature) {
+    public boolean verifyIpnSignature(Map<String, Object> data) {
+        Map<String, String> stringData = new HashMap<>();
+        data.forEach((k, v) -> stringData.put(k, v != null ? v.toString() : ""));
+        return verifySignatureParams(stringData);
+    }
+
+    private boolean verifySignatureParams(Map<String, String> data) {
         try {
-            String calculatedSignature = hmacSHA256(secretKey, rawData);
-            return calculatedSignature.equals(signature);
+            String receivedSignature = (String) data.get("signature");
+            if (receivedSignature == null) {
+                return false;
+            }
+
+            // Tạo raw data để verify (theo thứ tự alphabet)
+            String rawHash = "accessKey=" + accessKey +
+                    "&amount=" + data.get("amount") +
+                    "&extraData=" + data.getOrDefault("extraData", "") +
+                    "&message=" + data.get("message") +
+                    "&orderId=" + data.get("orderId") +
+                    "&orderInfo=" + data.get("orderInfo") +
+                    "&orderType=" + data.getOrDefault("orderType", "") +
+                    "&partnerCode=" + data.get("partnerCode") +
+                    "&payType=" + data.getOrDefault("payType", "") +
+                    "&requestId=" + data.get("requestId") +
+                    "&responseTime=" + data.get("responseTime") +
+                    "&resultCode=" + data.get("resultCode") +
+                    "&transId=" + data.get("transId");
+
+            String calculatedSignature = hmacSHA256(secretKey, rawHash);
+            return calculatedSignature.equals(receivedSignature);
+
         } catch (Exception e) {
-            log.error("Error verifying MoMo callback: {}", e.getMessage());
+            log.error("Error verifying MoMo signature: {}", e.getMessage());
             return false;
         }
     }
@@ -143,20 +181,19 @@ public class MoMoService {
      * Tạo HMAC SHA256 signature
      */
     private String hmacSHA256(String key, String data) throws Exception {
-        Mac sha256_HMAC = Mac.getInstance("HmacSHA256");
-        SecretKeySpec secret_key = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        sha256_HMAC.init(secret_key);
-        byte[] hash = sha256_HMAC.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        return bytesToHex(hash);
-    }
+        Mac hmac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        hmac.init(secretKeySpec);
+        byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
-    private String bytesToHex(byte[] bytes) {
-        Formatter formatter = new Formatter();
-        for (byte b : bytes) {
-            formatter.format("%02x", b);
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) {
+                hexString.append('0');
+            }
+            hexString.append(hex);
         }
-        String result = formatter.toString();
-        formatter.close();
-        return result;
+        return hexString.toString();
     }
 }

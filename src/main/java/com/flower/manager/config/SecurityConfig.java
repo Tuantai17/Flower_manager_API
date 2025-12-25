@@ -124,6 +124,8 @@ public class SecurityConfig {
                         // Products & Categories - công khai cho tất cả (GET)
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+                        // Reviews - công khai cho xem sản phẩm reviews (GET)
+                        .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
                         // Auth endpoints - không cần xác thực
                         .requestMatchers("/api/auth/**").permitAll()
                         // Static resources

@@ -39,4 +39,9 @@ public class CheckoutRequest {
     @NotNull(message = "Phương thức thanh toán không được để trống")
     @Builder.Default
     private PaymentMethod paymentMethod = PaymentMethod.COD;
+
+    /**
+     * Loại thanh toán MoMo (CARD hoặc WALLET)
+     */
+    private String momoType;
 }

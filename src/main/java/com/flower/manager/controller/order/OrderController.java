@@ -53,10 +53,19 @@ public class OrderController {
      * Xem chi tiết đơn hàng theo ID
      * GET /api/orders/{id}
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<OrderDTO>> getOrderById(@PathVariable Long id) {
-        log.info("Get order by id: {}", id);
-        OrderDTO order = orderService.getOrderById(id);
+    @GetMapping("/{identifier}")
+    public ResponseEntity<ApiResponse<OrderDTO>> getOrder(@PathVariable String identifier) {
+        log.info("Get order by identifier: {}", identifier);
+        OrderDTO order;
+
+        // Nếu là số, thử tìm theo ID
+        if (identifier.matches("^\\d+$")) {
+            order = orderService.getOrderById(Long.parseLong(identifier));
+        } else {
+            // Ngược lại tìm theo mã đơn hàng
+            order = orderService.getOrderByCode(identifier);
+        }
+
         return ResponseEntity.ok(ApiResponse.success(order));
     }
 
