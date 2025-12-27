@@ -227,4 +227,64 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                         "LEFT JOIN FETCH p.category c " +
                         "WHERE p.id IN :ids AND p.active = true")
         List<Product> findByIdIn(@Param("ids") List<Long> ids);
+
+        // =============== DASHBOARD STATISTICS ===============
+
+        /**
+         * Đếm số sản phẩm active
+         */
+        long countByActiveTrue();
+
+        /**
+         * Đếm số sản phẩm inactive
+         */
+        long countByActiveFalse();
+
+        /**
+         * Đếm số sản phẩm hết hàng (stock = 0)
+         */
+        @Query("SELECT COUNT(p) FROM Product p WHERE p.stockQuantity = 0 AND p.active = true")
+        Long countOutOfStock();
+
+        /**
+         * Đếm số sản phẩm sắp hết hàng (0 < stock <= threshold)
+         */
+        @Query("SELECT COUNT(p) FROM Product p WHERE p.stockQuantity > 0 AND p.stockQuantity <= :threshold AND p.active = true")
+        Long countLowStock(@Param("threshold") int threshold);
+
+        /**
+         * Lấy danh sách sản phẩm sắp hết hàng
+         */
+        @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category " +
+                        "WHERE p.stockQuantity > 0 AND p.stockQuantity <= :threshold AND p.active = true " +
+                        "ORDER BY p.stockQuantity ASC")
+        List<Product> findLowStockProducts(@Param("threshold") int threshold);
+
+        /**
+         * Lấy danh sách sản phẩm hết hàng
+         */
+        @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category " +
+                        "WHERE p.stockQuantity = 0 AND p.active = true " +
+                        "ORDER BY p.updatedAt DESC")
+        List<Product> findOutOfStockProducts();
+
+        /**
+         * Tính tổng giá trị tồn kho (price * stockQuantity)
+         */
+        @Query("SELECT COALESCE(SUM(p.price * p.stockQuantity), 0) FROM Product p WHERE p.active = true")
+        java.math.BigDecimal calculateTotalStockValue();
+
+        /**
+         * Lấy top sản phẩm bán chạy với thống kê
+         * Trả về: [productId, totalSold, totalRevenue, orderCount]
+         */
+        @Query("SELECT oi.product.id, SUM(oi.quantity), SUM(oi.subtotal), COUNT(DISTINCT oi.order.id) " +
+                        "FROM OrderItem oi " +
+                        "JOIN oi.order o " +
+                        "WHERE o.status IN (com.flower.manager.enums.OrderStatus.COMPLETED, com.flower.manager.enums.OrderStatus.DELIVERED) "
+                        +
+                        "GROUP BY oi.product.id " +
+                        "ORDER BY SUM(oi.quantity) DESC " +
+                        "LIMIT :limit")
+        List<Object[]> findTopSellingProductStats(@Param("limit") int limit);
 }

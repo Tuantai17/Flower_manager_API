@@ -3,10 +3,14 @@ package com.flower.manager.dto.product;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+
+import org.springframework.hateoas.RepresentationModel;
 
 /**
  * DTO cho việc tạo/cập nhật Product
@@ -15,7 +19,9 @@ import java.math.BigDecimal;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductDTO {
+@EqualsAndHashCode(callSuper = true)
+@ToString(callSuper = true)
+public class ProductDTO extends RepresentationModel<ProductDTO> {
 
     private Long id;
 

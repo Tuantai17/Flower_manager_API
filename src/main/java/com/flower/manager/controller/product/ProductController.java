@@ -8,8 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.*;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Controller công khai cho Product
@@ -29,7 +31,10 @@ public class ProductController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getAll() {
-        return ResponseEntity.ok(ApiResponse.success(productService.getAllActive()));
+        List<ProductDTO> products = productService.getAllActive().stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -38,7 +43,8 @@ public class ProductController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductDTO>> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getById(id)));
+        ProductDTO productDTO = productService.getById(id);
+        return ResponseEntity.ok(ApiResponse.success(addLinks(productDTO)));
     }
 
     /**
@@ -47,7 +53,8 @@ public class ProductController {
      */
     @GetMapping("/slug/{slug}")
     public ResponseEntity<ApiResponse<ProductDTO>> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getBySlug(slug)));
+        ProductDTO productDTO = productService.getBySlug(slug);
+        return ResponseEntity.ok(ApiResponse.success(addLinks(productDTO)));
     }
 
     /**
@@ -56,7 +63,10 @@ public class ProductController {
      */
     @GetMapping("/category/{categoryId}")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategory(@PathVariable Long categoryId) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getByCategory(categoryId)));
+        List<ProductDTO> products = productService.getByCategory(categoryId).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -65,7 +75,10 @@ public class ProductController {
      */
     @GetMapping("/category/slug/{categorySlug}")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategorySlug(@PathVariable String categorySlug) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getByCategorySlug(categorySlug)));
+        List<ProductDTO> products = productService.getByCategorySlug(categorySlug).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -99,7 +112,10 @@ public class ProductController {
                 .sortBy(sortBy)
                 .build();
 
-        return ResponseEntity.ok(ApiResponse.success(productService.advancedSearch(request)));
+        List<ProductDTO> products = productService.advancedSearch(request).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -112,7 +128,10 @@ public class ProductController {
     @GetMapping("/best-selling")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getBestSelling(
             @RequestParam(defaultValue = "10") int limit) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getBestSellingProducts(limit)));
+        List<ProductDTO> products = productService.getBestSellingProducts(limit).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -121,7 +140,10 @@ public class ProductController {
      */
     @GetMapping("/on-sale")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getOnSale() {
-        return ResponseEntity.ok(ApiResponse.success(productService.getOnSaleProducts()));
+        List<ProductDTO> products = productService.getOnSaleProducts().stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -130,7 +152,10 @@ public class ProductController {
      */
     @GetMapping("/latest")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getLatest(@RequestParam(defaultValue = "10") int limit) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getLatestProducts(limit)));
+        List<ProductDTO> products = productService.getLatestProducts(limit).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     // ============ Lấy sản phẩm theo danh mục cha ============
@@ -143,7 +168,10 @@ public class ProductController {
      */
     @GetMapping("/parent-category/{parentCategoryId}")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getByParentCategory(@PathVariable Long parentCategoryId) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getByParentCategory(parentCategoryId)));
+        List<ProductDTO> products = productService.getByParentCategory(parentCategoryId).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -155,7 +183,10 @@ public class ProductController {
     @GetMapping("/parent-category/slug/{parentCategorySlug}")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getByParentCategorySlug(
             @PathVariable String parentCategorySlug) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getByParentCategorySlug(parentCategorySlug)));
+        List<ProductDTO> products = productService.getByParentCategorySlug(parentCategorySlug).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
     }
 
     /**
@@ -173,6 +204,19 @@ public class ProductController {
      */
     @GetMapping("/category-auto/{categoryId}")
     public ResponseEntity<ApiResponse<List<ProductDTO>>> getByCategoryAuto(@PathVariable Long categoryId) {
-        return ResponseEntity.ok(ApiResponse.success(productService.getByCategoryIncludingChildren(categoryId)));
+        List<ProductDTO> products = productService.getByCategoryIncludingChildren(categoryId).stream()
+                .map(this::addLinks)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.success(products));
+    }
+
+    private ProductDTO addLinks(ProductDTO product) {
+        product.add(linkTo(methodOn(ProductController.class).getById(product.getId())).withSelfRel());
+        product.add(linkTo(methodOn(ProductController.class).getBySlug(product.getSlug())).withRel("by-slug"));
+        if (product.getCategoryId() != null) {
+            product.add(linkTo(methodOn(ProductController.class).getByCategory(product.getCategoryId()))
+                    .withRel("category"));
+        }
+        return product;
     }
 }

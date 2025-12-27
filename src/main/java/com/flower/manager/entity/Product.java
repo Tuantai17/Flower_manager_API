@@ -1,6 +1,8 @@
 package com.flower.manager.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -17,6 +19,8 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Product {
 
     @Id
@@ -41,6 +45,7 @@ public class Product {
     @Column(length = 500)
     private String thumbnail;
 
+    @Builder.Default
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity = 0;
 
@@ -50,9 +55,11 @@ public class Product {
      * 0 = Inactive (ngừng bán)
      * 2 = Out of stock (hết hàng)
      */
+    @Builder.Default
     @Column(nullable = false)
     private Integer status = 1;
 
+    @Builder.Default
     @Column(nullable = false)
     private Boolean active = true;
 

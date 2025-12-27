@@ -2,6 +2,7 @@ package com.flower.manager.service.payment;
 
 import com.flower.manager.dto.payment.MomoPaymentResponse;
 import com.flower.manager.entity.Order;
+import com.flower.manager.enums.ErrorCode;
 import com.flower.manager.exception.BusinessException;
 import com.flower.manager.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
@@ -20,6 +22,12 @@ import java.util.Map;
 /**
  * Service tích hợp thanh toán MoMo
  * Sử dụng MoMo API v2
+ * 
+ * Log convention:
+ * - [MOMO:CREATE] - Tạo payment request
+ * - [MOMO:CALLBACK] - Xử lý callback (IPN/Return)
+ * - [MOMO:VERIFY] - Xác thực chữ ký
+ * - [MOMO:ERROR] - Lỗi xảy ra
  */
 @Service
 @RequiredArgsConstructor
@@ -51,12 +59,21 @@ public class MoMoService {
      * Tạo yêu cầu thanh toán MoMo từ Order ID
      */
     public MomoPaymentResponse createPaymentFromOrder(Long orderId, String momoType) {
+        log.info("[MOMO:CREATE] Starting payment creation for orderId={}, type={}", orderId, momoType);
+
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Đơn hàng không tồn tại"));
+                .orElseThrow(() -> {
+                    log.error("[MOMO:ERROR] Order not found: orderId={}", orderId);
+                    return new BusinessException(ErrorCode.ORDER_NOT_FOUND);
+                });
 
         if (order.getIsPaid()) {
-            throw new BusinessException("ORDER_ALREADY_PAID", "Đơn hàng đã được thanh toán");
+            log.warn("[MOMO:ERROR] Order already paid: orderCode={}", order.getOrderCode());
+            throw new BusinessException(ErrorCode.ORDER_ALREADY_PAID);
         }
+
+        log.info("[MOMO:CREATE] Order found: orderCode={}, amount={}",
+                order.getOrderCode(), order.getFinalPrice());
 
         return createPayment(
                 order.getFinalPrice().longValue(),
@@ -69,15 +86,21 @@ public class MoMoService {
      * Tạo yêu cầu thanh toán MoMo
      */
     public MomoPaymentResponse createPayment(Long amount, String orderId, String orderInfo, String momoType) {
+        String requestId = String.valueOf(System.currentTimeMillis());
+
+        log.info("[MOMO:CREATE] Preparing request: orderId={}, amount={}, requestId={}",
+                orderId, amount, requestId);
+
         try {
-            String requestId = String.valueOf(System.currentTimeMillis());
             String extraData = "";
 
-            // 🔥 Xử lý requestType theo momoType
+            // Xử lý requestType theo momoType
             String requestType = "captureWallet"; // Mặc định là Ví (QR)
             if ("CARD".equalsIgnoreCase(momoType)) {
                 requestType = "payWithATM"; // Thẻ ATM / Visa / Master
             }
+
+            log.debug("[MOMO:CREATE] Request type: {} (input: {})", requestType, momoType);
 
             // Tạo raw signature theo thứ tự alphabet (MoMo v2 requirement)
             String rawHash = "accessKey=" + accessKey +
@@ -91,8 +114,9 @@ public class MoMoService {
                     "&requestId=" + requestId +
                     "&requestType=" + requestType;
 
-            log.debug("MoMo Raw Hash: {}", rawHash);
+            log.debug("[MOMO:CREATE] Raw hash for signature: {}", rawHash);
             String signature = hmacSHA256(secretKey, rawHash);
+            log.debug("[MOMO:CREATE] Generated signature: {}...", signature.substring(0, 20));
 
             // Tạo payload
             Map<String, Object> payload = new HashMap<>();
@@ -110,30 +134,52 @@ public class MoMoService {
             payload.put("requestType", requestType);
             payload.put("signature", signature);
 
-            log.info("Creating MoMo payment for order: {}, amount: {}", orderId, amount);
+            log.info("[MOMO:CREATE] Sending request to MoMo API: endpoint={}", endpoint);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+            long startTime = System.currentTimeMillis();
             ResponseEntity<MomoPaymentResponse> response = restTemplate.postForEntity(
                     endpoint, entity, MomoPaymentResponse.class);
+            long duration = System.currentTimeMillis() - startTime;
 
             MomoPaymentResponse momoResponse = response.getBody();
 
-            if (momoResponse != null && momoResponse.getResultCode() != 0) {
-                log.error("MoMo payment error: {} - {}", momoResponse.getResultCode(), momoResponse.getMessage());
-                throw new BusinessException("MOMO_ERROR", "Lỗi thanh toán MoMo: " + momoResponse.getMessage());
+            if (momoResponse != null) {
+                log.info("[MOMO:CREATE] Response received in {}ms: resultCode={}, message={}",
+                        duration, momoResponse.getResultCode(), momoResponse.getMessage());
+
+                if (momoResponse.getResultCode() != 0) {
+                    log.error("[MOMO:ERROR] Payment creation failed: orderId={}, resultCode={}, message={}",
+                            orderId, momoResponse.getResultCode(), momoResponse.getMessage());
+                    throw new BusinessException(ErrorCode.PAYMENT_MOMO_ERROR,
+                            "Lỗi thanh toán MoMo: " + momoResponse.getMessage());
+                }
+
+                log.info("[MOMO:CREATE] Payment URL created successfully: orderId={}, payUrl={}...",
+                        orderId,
+                        momoResponse.getPayUrl() != null
+                                ? momoResponse.getPayUrl().substring(0, Math.min(50, momoResponse.getPayUrl().length()))
+                                : "null");
             }
 
-            log.info("MoMo payment URL created successfully for order: {}", orderId);
             return momoResponse;
 
         } catch (BusinessException e) {
             throw e;
+        } catch (RestClientException e) {
+            log.error("[MOMO:ERROR] Network error calling MoMo API: orderId={}, error={}",
+                    orderId, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.PAYMENT_MOMO_ERROR,
+                    "Không thể kết nối đến MoMo: " + e.getMessage());
         } catch (Exception e) {
-            log.error("Error creating MoMo payment: {}", e.getMessage(), e);
-            throw new BusinessException("MOMO_ERROR", "Không thể tạo thanh toán MoMo: " + e.getMessage());
+            log.error("[MOMO:ERROR] Unexpected error creating payment: orderId={}, error={}",
+                    orderId, e.getMessage(), e);
+            throw new BusinessException(ErrorCode.PAYMENT_MOMO_ERROR,
+                    "Không thể tạo thanh toán MoMo: " + e.getMessage());
         }
     }
 
@@ -141,15 +187,33 @@ public class MoMoService {
      * Xác thực chữ ký callback từ MoMo (dùng cho IPN - Map<String, Object>)
      */
     public boolean verifyIpnSignature(Map<String, Object> data) {
+        log.info("[MOMO:VERIFY] Starting IPN signature verification for orderId={}",
+                data.get("orderId"));
+
         Map<String, String> stringData = new HashMap<>();
         data.forEach((k, v) -> stringData.put(k, v != null ? v.toString() : ""));
-        return verifySignatureParams(stringData);
+
+        boolean isValid = verifySignatureParams(stringData);
+
+        if (isValid) {
+            log.info("[MOMO:VERIFY] IPN signature verified successfully: orderId={}",
+                    data.get("orderId"));
+        } else {
+            log.error("[MOMO:VERIFY] IPN signature verification FAILED: orderId={}",
+                    data.get("orderId"));
+        }
+
+        return isValid;
     }
 
+    /**
+     * Xác thực chữ ký từ params (dùng cho cả IPN và redirect)
+     */
     private boolean verifySignatureParams(Map<String, String> data) {
         try {
-            String receivedSignature = (String) data.get("signature");
+            String receivedSignature = data.get("signature");
             if (receivedSignature == null) {
+                log.warn("[MOMO:VERIFY] No signature found in callback data");
                 return false;
             }
 
@@ -168,11 +232,20 @@ public class MoMoService {
                     "&resultCode=" + data.get("resultCode") +
                     "&transId=" + data.get("transId");
 
+            log.debug("[MOMO:VERIFY] Raw hash for verification: {}", rawHash);
+
             String calculatedSignature = hmacSHA256(secretKey, rawHash);
-            return calculatedSignature.equals(receivedSignature);
+            boolean isValid = calculatedSignature.equals(receivedSignature);
+
+            log.debug("[MOMO:VERIFY] Calculated: {}..., Received: {}..., Match: {}",
+                    calculatedSignature.substring(0, 20),
+                    receivedSignature.substring(0, Math.min(20, receivedSignature.length())),
+                    isValid);
+
+            return isValid;
 
         } catch (Exception e) {
-            log.error("Error verifying MoMo signature: {}", e.getMessage());
+            log.error("[MOMO:ERROR] Error verifying signature: {}", e.getMessage(), e);
             return false;
         }
     }
