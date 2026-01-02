@@ -71,6 +71,19 @@ public class Product {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    /**
+     * Mã SKU sản phẩm
+     */
+    @Column(name = "sku", length = 100)
+    private String sku;
+
+    /**
+     * Số lượng đã bán
+     */
+    @Builder.Default
+    @Column(name = "sold_count")
+    private Integer soldCount = 0;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

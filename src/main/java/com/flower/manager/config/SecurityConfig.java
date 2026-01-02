@@ -126,6 +126,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                         // Reviews - công khai cho xem sản phẩm reviews (GET)
                         .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
+                        // Vouchers - công khai cho xem danh sách voucher active
+                        .requestMatchers(HttpMethod.GET, "/api/vouchers/active").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/vouchers/check/**").permitAll()
+                        // Chat - public endpoints for chatbot (allow all methods)
+                        .requestMatchers("/api/chat/**").permitAll()
                         // Auth endpoints - không cần xác thực
                         .requestMatchers("/api/auth/**").permitAll()
                         // Static resources
@@ -136,6 +141,8 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                         // Admin endpoints - chỉ ADMIN mới có quyền
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // Admin chat endpoints - ADMIN và STAFF đều có quyền
+                        .requestMatchers("/api/chat/admin/**").hasAnyRole("ADMIN", "STAFF")
                         // Staff endpoints - ADMIN và STAFF đều có quyền
                         .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
                         // Tất cả các request khác cần xác thực

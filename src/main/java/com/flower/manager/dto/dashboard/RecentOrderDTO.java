@@ -19,8 +19,8 @@ public class RecentOrderDTO {
 
     private Long id;
     private String orderCode;
-    private String customerName;
-    private String customerPhone;
+    private String recipientName; // Changed from customerName
+    private String recipientPhone; // Changed from customerPhone
     private BigDecimal finalPrice;
     private String status;
     private String statusDisplayName;

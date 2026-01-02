@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,20 +41,46 @@ public class Order {
     @JsonIgnore
     private User user;
 
-    @Column(name = "customer_name", nullable = false)
-    private String customerName;
+    // ============ THÔNG TIN NGƯỜI GỬI ============
+    @Column(name = "sender_name", nullable = false)
+    private String senderName;
 
-    @Column(name = "customer_email")
-    private String customerEmail;
+    @Column(name = "sender_phone", nullable = false)
+    private String senderPhone;
 
-    @Column(name = "customer_phone", nullable = false)
-    private String customerPhone;
+    @Column(name = "sender_email")
+    private String senderEmail;
 
-    @Column(name = "shipping_address", nullable = false)
-    private String shippingAddress;
+    // ============ THÔNG TIN NGƯỜI NHẬN ============
+    @Column(name = "recipient_name", nullable = false)
+    private String recipientName;
+
+    @Column(name = "recipient_phone", nullable = false)
+    private String recipientPhone;
+
+    // ============ ĐỊA CHỈ GIAO HÀNG (CHUẨN HÓA) ============
+    @Column(name = "province", nullable = false)
+    private String province; // Tỉnh/Thành phố
+
+    @Column(name = "district", nullable = false)
+    private String district; // Quận/Huyện
+
+    @Column(name = "address_detail", nullable = false)
+    private String addressDetail; // Số nhà, tên đường
+
+    // ============ LỊCH GIAO HÀNG ============
+    @Column(name = "delivery_date")
+    private LocalDate deliveryDate; // Ngày giao hàng
+
+    @Column(name = "delivery_time")
+    private String deliveryTime; // Khung giờ giao (VD: "16:00 - 20:00")
+
+    // ============ GHI CHÚ & ĐỊA CHỈ GỘP ============
+    @Column(name = "shipping_address")
+    private String shippingAddress; // Địa chỉ đầy đủ (auto-generate từ các trường trên)
 
     @Column(name = "note")
-    private String note;
+    private String note; // Lời nhắn cho người nhận
 
     // Giá trị đơn hàng
     @Column(name = "total_price", nullable = false, precision = 12, scale = 2)

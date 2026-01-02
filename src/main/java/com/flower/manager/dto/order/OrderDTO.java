@@ -5,11 +5,13 @@ import com.flower.manager.enums.PaymentMethod;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * DTO cho thông tin Đơn hàng
+ * Cấu trúc theo UI: Người gửi, Người nhận, Địa chỉ chi tiết, Lịch giao hàng
  */
 @Getter
 @Setter
@@ -20,43 +22,58 @@ public class OrderDTO {
 
     private Long id;
     private String orderCode;
-
-    // Thông tin khách hàng
     private Long userId;
-    private String customerName;
-    private String customerPhone;
-    private String customerEmail;
-    private String shippingAddress;
+
+    // ============ THÔNG TIN NGƯỜI GỬI ============
+    private String senderName;
+    private String senderPhone;
+    private String senderEmail;
+
+    // ============ THÔNG TIN NGƯỜI NHẬN ============
+    private String recipientName;
+    private String recipientPhone;
+
+    // ============ ĐỊA CHỈ GIAO HÀNG (CHUẨN HÓA) ============
+    private String province; // Tỉnh/Thành phố
+    private String district; // Quận/Huyện
+    private String addressDetail; // Số nhà, tên đường
+    private String shippingAddress; // Địa chỉ đầy đủ
+
+    // ============ LỊCH GIAO HÀNG ============
+    private LocalDate deliveryDate;
+    private String deliveryTime;
+
+    // ============ GHI CHÚ ============
     private String note;
 
-    // Giá trị
+    // ============ GIÁ TRỊ ============
     private BigDecimal totalPrice;
     private BigDecimal discountAmount;
     private BigDecimal shippingFee;
     private BigDecimal finalPrice;
 
-    // Voucher
+    // ============ VOUCHER ============
     private String voucherCode;
 
-    // Thanh toán
+    // ============ THANH TOÁN ============
     private PaymentMethod paymentMethod;
     private Boolean isPaid;
     private LocalDateTime paidAt;
     private String paymentUrl; // URL thanh toán (MoMo, VNPay)
 
-    // Trạng thái
+    // ============ TRẠNG THÁI ============
     private OrderStatus status;
     private String statusDisplayName;
     private String cancelledReason;
 
-    // Thời gian
+    // ============ THỜI GIAN ============
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Chi tiết sản phẩm
+    // ============ CHI TIẾT SẢN PHẨM ============
     private List<OrderItemDTO> items;
     private Integer totalQuantity;
 
-    // Có thể hủy đơn không
+    // ============ ACTIONS ============
     private Boolean cancellable;
 }

@@ -9,6 +9,7 @@ import lombok.ToString;
 
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import org.springframework.hateoas.RepresentationModel;
 
@@ -106,4 +107,24 @@ public class ProductDTO extends RepresentationModel<ProductDTO> {
      * Giá hiện tại (giá sale nếu có) (read-only)
      */
     private BigDecimal currentPrice;
+
+    /**
+     * Ngày tạo sản phẩm (read-only)
+     */
+    private LocalDateTime createdAt;
+
+    /**
+     * Ngày cập nhật sản phẩm (read-only)
+     */
+    private LocalDateTime updatedAt;
+
+    /**
+     * Mã SKU sản phẩm (read-only)
+     */
+    private String sku;
+
+    /**
+     * Số lượng đã bán (read-only)
+     */
+    private Integer soldCount;
 }

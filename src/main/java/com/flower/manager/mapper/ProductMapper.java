@@ -57,6 +57,10 @@ public class ProductMapper {
                 .parentCategorySlug(parentCategorySlug)
                 .onSale(product.isOnSale())
                 .currentPrice(product.getCurrentPrice())
+                .createdAt(product.getCreatedAt())
+                .updatedAt(product.getUpdatedAt())
+                .sku(product.getSku())
+                .soldCount(product.getSoldCount())
                 .build();
     }
 
@@ -87,6 +91,7 @@ public class ProductMapper {
         product.setPrice(dto.getPrice());
         product.setSalePrice(dto.getSalePrice());
         product.setThumbnail(dto.getThumbnail());
+        product.setSku(dto.getSku());
         product.setStockQuantity(dto.getStockQuantity() != null ? dto.getStockQuantity() : 0);
         product.setStatus(dto.getStatus() != null ? dto.getStatus() : 1);
         product.setActive(dto.getActive() != null ? dto.getActive() : true);
@@ -115,6 +120,9 @@ public class ProductMapper {
         }
         if (dto.getThumbnail() != null) {
             product.setThumbnail(dto.getThumbnail());
+        }
+        if (dto.getSku() != null) {
+            product.setSku(dto.getSku());
         }
         if (dto.getStockQuantity() != null) {
             product.setStockQuantity(dto.getStockQuantity());

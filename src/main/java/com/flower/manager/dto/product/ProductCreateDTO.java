@@ -27,6 +27,9 @@ public class ProductCreateDTO {
     @Pattern(regexp = "^[a-z0-9]+(-[a-z0-9]+)*$", message = "Slug chỉ được chứa chữ thường, số và dấu gạch ngang")
     private String slug;
 
+    @Size(max = 100, message = "Mã SKU tối đa 100 ký tự")
+    private String sku;
+
     @Size(max = 5000, message = "Mô tả tối đa 5000 ký tự")
     private String description;
 

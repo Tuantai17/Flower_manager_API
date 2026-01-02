@@ -138,19 +138,35 @@ public class OrderServiceImpl implements OrderService {
             finalPrice = BigDecimal.ZERO;
         }
 
-        // 6. Tạo đơn hàng
+        // 6. Tạo đơn hàng với thông tin người gửi, người nhận, địa chỉ chuẩn hóa
+        String fullShippingAddress = request.getFullShippingAddress();
+
         Order order = Order.builder()
                 .user(user)
-                .customerName(request.getCustomerName())
-                .customerEmail(request.getCustomerEmail() != null ? request.getCustomerEmail() : user.getEmail())
-                .customerPhone(request.getCustomerPhone())
-                .shippingAddress(request.getShippingAddress())
+                // Thông tin người gửi
+                .senderName(request.getSenderName())
+                .senderPhone(request.getSenderPhone())
+                .senderEmail(request.getSenderEmail() != null ? request.getSenderEmail() : user.getEmail())
+                // Thông tin người nhận
+                .recipientName(request.getRecipientName())
+                .recipientPhone(request.getRecipientPhone())
+                // Địa chỉ giao hàng chuẩn hóa
+                .province(request.getProvince())
+                .district(request.getDistrict())
+                .addressDetail(request.getAddressDetail())
+                .shippingAddress(fullShippingAddress)
+                // Lịch giao hàng
+                .deliveryDate(request.getDeliveryDate())
+                .deliveryTime(request.getDeliveryTime())
+                // Ghi chú
                 .note(request.getNote())
+                // Giá trị
                 .totalPrice(totalPrice)
                 .discountAmount(discountAmount)
                 .shippingFee(shippingFee)
                 .finalPrice(finalPrice)
                 .voucher(voucher)
+                // Thanh toán
                 .paymentMethod(request.getPaymentMethod())
                 .status(OrderStatus.PENDING)
                 .isPaid(false)
@@ -435,27 +451,35 @@ public class OrderServiceImpl implements OrderService {
      * Gửi email xác nhận đơn hàng
      */
     private void sendOrderConfirmationEmail(Order order) {
-        if (order.getCustomerEmail() == null || order.getCustomerEmail().isBlank()) {
+        if (order.getSenderEmail() == null || order.getSenderEmail().isBlank()) {
             return;
         }
 
         StringBuilder content = new StringBuilder();
-        content.append("Xin chào ").append(order.getCustomerName()).append(",\n\n");
+        content.append("Xin chào ").append(order.getSenderName()).append(",\n\n");
         content.append("Đơn hàng của bạn đã được đặt thành công!\n\n");
         content.append("Mã đơn hàng: ").append(order.getOrderCode()).append("\n");
+        content.append("Người nhận: ").append(order.getRecipientName()).append(" - ").append(order.getRecipientPhone())
+                .append("\n");
         content.append("Tổng tiền: ").append(order.getFinalPrice()).append(" VNĐ\n");
         content.append("Phương thức thanh toán: ").append(order.getPaymentMethod().getDisplayName()).append("\n");
-        content.append("Địa chỉ giao hàng: ").append(order.getShippingAddress()).append("\n\n");
-        content.append("Cảm ơn bạn đã mua sắm tại Flower Shop!");
+        content.append("Địa chỉ giao hàng: ").append(order.getShippingAddress()).append("\n");
+        if (order.getDeliveryDate() != null) {
+            content.append("Ngày giao: ").append(order.getDeliveryDate()).append("\n");
+        }
+        if (order.getDeliveryTime() != null) {
+            content.append("Khung giờ: ").append(order.getDeliveryTime()).append("\n");
+        }
+        content.append("\nCảm ơn bạn đã mua sắm tại Flower Shop!");
 
-        emailService.sendOrderEmail(order.getCustomerEmail(), content.toString());
+        emailService.sendOrderEmail(order.getSenderEmail(), content.toString());
     }
 
     /**
      * Gửi email xác nhận thanh toán
      */
     private void sendPaymentConfirmationEmail(Order order) {
-        if (order.getCustomerEmail() == null || order.getCustomerEmail().isBlank()) {
+        if (order.getSenderEmail() == null || order.getSenderEmail().isBlank()) {
             return;
         }
 
@@ -463,7 +487,7 @@ public class OrderServiceImpl implements OrderService {
                 "Số tiền: " + order.getFinalPrice() + " VNĐ. " +
                 "Mã giao dịch: " + order.getTransactionId();
 
-        emailService.sendOrderEmail(order.getCustomerEmail(), content);
+        emailService.sendOrderEmail(order.getSenderEmail(), content);
     }
 
     @Override
@@ -485,24 +509,41 @@ public class OrderServiceImpl implements OrderService {
                 .id(order.getId())
                 .orderCode(order.getOrderCode())
                 .userId(order.getUser() != null ? order.getUser().getId() : null)
-                .customerName(order.getCustomerName())
-                .customerPhone(order.getCustomerPhone())
-                .customerEmail(order.getCustomerEmail())
+                // Thông tin người gửi
+                .senderName(order.getSenderName())
+                .senderPhone(order.getSenderPhone())
+                .senderEmail(order.getSenderEmail())
+                // Thông tin người nhận
+                .recipientName(order.getRecipientName())
+                .recipientPhone(order.getRecipientPhone())
+                // Địa chỉ giao hàng
+                .province(order.getProvince())
+                .district(order.getDistrict())
+                .addressDetail(order.getAddressDetail())
                 .shippingAddress(order.getShippingAddress())
+                // Lịch giao hàng
+                .deliveryDate(order.getDeliveryDate())
+                .deliveryTime(order.getDeliveryTime())
+                // Ghi chú
                 .note(order.getNote())
+                // Giá trị
                 .totalPrice(order.getTotalPrice())
                 .discountAmount(order.getDiscountAmount())
                 .shippingFee(order.getShippingFee())
                 .finalPrice(order.getFinalPrice())
                 .voucherCode(order.getVoucher() != null ? order.getVoucher().getCode() : null)
+                // Thanh toán
                 .paymentMethod(order.getPaymentMethod())
                 .isPaid(order.getIsPaid())
                 .paidAt(order.getPaidAt())
+                // Trạng thái
                 .status(order.getStatus())
                 .statusDisplayName(order.getStatus().getDisplayName())
                 .cancelledReason(order.getCancelledReason())
+                // Thời gian
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
+                // Items
                 .items(itemDTOs)
                 .totalQuantity(order.getTotalQuantity())
                 .cancellable(order.isCancellable())

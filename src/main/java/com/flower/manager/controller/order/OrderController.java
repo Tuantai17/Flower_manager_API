@@ -31,7 +31,7 @@ public class OrderController {
      */
     @PostMapping("/checkout")
     public ResponseEntity<ApiResponse<OrderDTO>> checkout(@Valid @RequestBody CheckoutRequest request) {
-        log.info("Checkout request: {}", request.getCustomerName());
+        log.info("Checkout request: {}", request.getSenderName());
         OrderDTO order = orderService.checkout(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.created(order, "Đặt hàng thành công"));
@@ -93,3 +93,4 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success(order, "Đã hủy đơn hàng thành công"));
     }
 }
+

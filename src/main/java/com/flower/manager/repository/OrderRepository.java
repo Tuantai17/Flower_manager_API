@@ -53,8 +53,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                         "(:toDate IS NULL OR o.createdAt <= :toDate) AND " +
                         "(:keyword IS NULL OR :keyword = '' OR " +
                         "   LOWER(o.orderCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-                        "   LOWER(o.customerName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-                        "   o.customerPhone LIKE CONCAT('%', :keyword, '%'))")
+                        "   LOWER(o.recipientName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                        "   LOWER(o.senderName) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
+                        "   o.recipientPhone LIKE CONCAT('%', :keyword, '%') OR " +
+                        "   o.senderPhone LIKE CONCAT('%', :keyword, '%'))")
         Page<Order> findWithFilters(
                         @Param("status") OrderStatus status,
                         @Param("fromDate") LocalDateTime fromDate,
