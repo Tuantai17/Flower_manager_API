@@ -31,3 +31,16 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Environment Variables (SENSITIVE) ###
+.env
+.env.local
+.env.*.local
+
+### Uploaded Files ###
+uploads/
+
+### Logs ###
+*.log
+logs/
+

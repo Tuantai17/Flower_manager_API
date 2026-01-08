@@ -22,7 +22,7 @@ public class GeminiService {
 
     private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
-    @Value("${gemini.api-key:AIzaSyCYt83KMWBUGm7Mprc6TRwIq4OWOekcECo}")
+    @Value("${gemini.api-key:AIzaSyCoS0MZ-yRFaXaXgMbPL4acIptL2U31pt4}")
     private String apiKey;
 
     private final OkHttpClient httpClient;

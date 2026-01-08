@@ -39,6 +39,12 @@ public class OrderDTO {
     private String addressDetail; // Số nhà, tên đường
     private String shippingAddress; // Địa chỉ đầy đủ
 
+    // ============ TỌA ĐỘ ĐỊA LÝ (OSM/PHOTON) ============
+    private Double lat; // Latitude
+    private Double lng; // Longitude
+    private String geoProvider; // Provider: PHOTON, GOOGLE, MAPBOX
+    private String placeId; // Place ID (for Google/Mapbox)
+
     // ============ LỊCH GIAO HÀNG ============
     private LocalDate deliveryDate;
     private String deliveryTime;

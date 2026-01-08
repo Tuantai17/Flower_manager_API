@@ -79,6 +79,19 @@ public class Order {
     @Column(name = "shipping_address")
     private String shippingAddress; // Địa chỉ đầy đủ (auto-generate từ các trường trên)
 
+    // ============ TỌA ĐỘ ĐỊA LÝ (OSM/PHOTON) ============
+    @Column(name = "lat")
+    private Double lat; // Latitude
+
+    @Column(name = "lng")
+    private Double lng; // Longitude
+
+    @Column(name = "geo_provider", length = 20)
+    private String geoProvider; // Provider: PHOTON, GOOGLE, MAPBOX
+
+    @Column(name = "place_id", length = 120)
+    private String placeId; // Place ID (for Google/Mapbox)
+
     @Column(name = "note")
     private String note; // Lời nhắn cho người nhận
 

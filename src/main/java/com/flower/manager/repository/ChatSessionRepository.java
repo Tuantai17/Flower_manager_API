@@ -57,4 +57,15 @@ public interface ChatSessionRepository extends JpaRepository<ChatSession, Long> 
      * Count sessions waiting for staff
      */
     long countByStatus(String status);
+
+    /**
+     * Find sessions by status list, ordered by updatedAt desc
+     */
+    List<ChatSession> findByStatusInOrderByUpdatedAtDesc(List<String> statuses);
+
+    /**
+     * Find active sessions using native query (for debugging)
+     */
+    @Query(value = "SELECT * FROM chat_sessions WHERE status IN (:statuses) ORDER BY updated_at DESC", nativeQuery = true)
+    List<ChatSession> findActiveSessionsNative(@Param("statuses") List<String> statuses);
 }

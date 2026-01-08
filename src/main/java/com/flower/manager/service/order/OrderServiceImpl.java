@@ -8,6 +8,7 @@ import com.flower.manager.exception.BusinessException;
 import com.flower.manager.exception.ResourceNotFoundException;
 import com.flower.manager.repository.*;
 import com.flower.manager.service.email.EmailService;
+import com.flower.manager.service.notification.OrderNotificationService;
 import com.flower.manager.service.payment.MoMoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +43,7 @@ public class OrderServiceImpl implements OrderService {
     private final EmailService emailService;
     private final MoMoService momoService;
     private final com.flower.manager.service.stock.StockService stockService;
+    private final OrderNotificationService orderNotificationService;
 
     /**
      * Lấy user hiện tại từ Security Context
@@ -155,6 +157,11 @@ public class OrderServiceImpl implements OrderService {
                 .district(request.getDistrict())
                 .addressDetail(request.getAddressDetail())
                 .shippingAddress(fullShippingAddress)
+                // Tọa độ địa lý (từ OSM/Photon)
+                .lat(request.getLat())
+                .lng(request.getLng())
+                .geoProvider(request.getGeoProvider())
+                .placeId(request.getPlaceId())
                 // Lịch giao hàng
                 .deliveryDate(request.getDeliveryDate())
                 .deliveryTime(request.getDeliveryTime())
@@ -198,7 +205,14 @@ public class OrderServiceImpl implements OrderService {
             log.error("Failed to send order confirmation email: {}", e.getMessage());
         }
 
-        // 11. Tạo URL thanh toán nếu là MoMo
+        // 11. Gửi thông báo realtime cho admin
+        try {
+            orderNotificationService.notifyAdminNewOrder(savedOrder);
+        } catch (Exception e) {
+            log.error("Failed to send order notification: {}", e.getMessage());
+        }
+
+        // 12. Tạo URL thanh toán nếu là MoMo
         OrderDTO orderDTO = mapToDTO(savedOrder);
         if (request.getPaymentMethod() == PaymentMethod.MOMO) {
             try {
@@ -521,6 +535,11 @@ public class OrderServiceImpl implements OrderService {
                 .district(order.getDistrict())
                 .addressDetail(order.getAddressDetail())
                 .shippingAddress(order.getShippingAddress())
+                // Tọa độ địa lý
+                .lat(order.getLat())
+                .lng(order.getLng())
+                .geoProvider(order.getGeoProvider())
+                .placeId(order.getPlaceId())
                 // Lịch giao hàng
                 .deliveryDate(order.getDeliveryDate())
                 .deliveryTime(order.getDeliveryTime())

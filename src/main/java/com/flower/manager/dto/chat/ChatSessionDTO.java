@@ -25,4 +25,6 @@ public class ChatSessionDTO {
     private LocalDateTime updatedAt;
     private List<ChatMessageDTO> messages;
     private Long unreadCount;
+    private boolean isUserOnline;
+    private String userName;
 }

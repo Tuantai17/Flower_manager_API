@@ -139,8 +139,7 @@ public class FileUploadController {
     }
 
     /**
-     * Upload avatar user (User da dang nhap)
-     * POST /api/upload/user
+     * Upload avatar thanh cong
      */
     @PostMapping(value = "/user", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<FileUploadResponse>> uploadUserAvatar(
@@ -158,6 +157,29 @@ public class FileUploadController {
                 .build();
 
         return ResponseEntity.ok(ApiResponse.success(response, "Upload avatar thanh cong"));
+    }
+
+    /**
+     * Upload anh banner (chi Admin)
+     * POST /api/upload/banner
+     */
+    @PostMapping(value = "/banner", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<FileUploadResponse>> uploadBannerImage(
+            @RequestParam("file") MultipartFile file) {
+
+        log.info("Uploading banner image: {}", file.getOriginalFilename());
+
+        String url = getStorage().uploadFile(file, "banners");
+
+        FileUploadResponse response = FileUploadResponse.builder()
+                .url(url)
+                .originalName(file.getOriginalFilename())
+                .size(file.getSize())
+                .contentType(file.getContentType())
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(response, "Upload anh banner thanh cong"));
     }
 
     /**

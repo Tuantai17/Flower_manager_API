@@ -47,6 +47,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
+    private final EmailVerificationService emailVerificationService;
 
     /**
      * URL Frontend dùng cho link reset password
@@ -151,6 +152,15 @@ public class AuthServiceImpl implements AuthService {
         log.info("New user registered successfully: username={}, role={}",
                 savedUser.getUsername(), savedUser.getRole());
 
+        // === GỬI EMAIL XÁC THỰC ===
+        try {
+            emailVerificationService.sendVerificationEmail(savedUser);
+            log.info("Verification email sent to: {}", savedUser.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send verification email: {}", e.getMessage());
+            // Không throw exception để không block đăng ký
+        }
+
         // === TỰ ĐỘNG ĐĂNG NHẬP SAU KHI ĐĂNG KÝ ===
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -160,7 +170,10 @@ public class AuthServiceImpl implements AuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateJwtToken(authentication);
 
-        return AuthResponse.success("Đăng ký thành công", jwt, mapToUserDTO(savedUser));
+        return AuthResponse.success(
+                "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+                jwt,
+                mapToUserDTO(savedUser));
     }
 
     /**
@@ -323,6 +336,7 @@ public class AuthServiceImpl implements AuthService {
                 .address(user.getAddress())
                 .role(user.getRole().name())
                 .isActive(user.getIsActive())
+                .emailVerified(user.getEmailVerified())
                 .createdAt(user.getCreatedAt())
                 .build();
     }

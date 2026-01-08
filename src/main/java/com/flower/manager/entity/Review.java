@@ -72,11 +72,12 @@ public class Review {
 
     /**
      * Trạng thái: PENDING, APPROVED, REJECTED
+     * Mặc định APPROVED để review hiển thị ngay
      */
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private ReviewStatus status = ReviewStatus.PENDING;
+    private ReviewStatus status = ReviewStatus.APPROVED;
 
     /**
      * Phản hồi từ Admin/Shop

@@ -107,7 +107,13 @@ public enum ErrorCode {
     RESOURCE_ALREADY_EXISTS("RESOURCE_002", "Tài nguyên đã tồn tại", HttpStatus.CONFLICT),
 
     // =============== BUSINESS GENERIC ===============
-    BUSINESS_ERROR("BUSINESS_001", "Thao tác không hợp lệ", HttpStatus.UNPROCESSABLE_ENTITY);
+    BUSINESS_ERROR("BUSINESS_001", "Thao tác không hợp lệ", HttpStatus.UNPROCESSABLE_ENTITY),
+
+    // =============== EMAIL VERIFICATION ===============
+    INVALID_TOKEN("TOKEN_001", "Token không hợp lệ hoặc không tồn tại", HttpStatus.BAD_REQUEST),
+    TOKEN_EXPIRED("TOKEN_002", "Token đã hết hạn", HttpStatus.BAD_REQUEST),
+    EMAIL_SEND_FAILED("EMAIL_001", "Không thể gửi email", HttpStatus.INTERNAL_SERVER_ERROR),
+    EMAIL_ALREADY_VERIFIED("EMAIL_002", "Email đã được xác thực", HttpStatus.CONFLICT);
 
     private final String code;
     private final String message;

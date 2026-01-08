@@ -56,6 +56,15 @@ public class CheckoutRequest {
 
     private String deliveryTime; // Khung giờ giao (VD: "16:00 - 20:00")
 
+    // ============ TỌA ĐỘ ĐỊA LÝ (từ OSM/Photon Autocomplete) ============
+    private Double lat; // Latitude từ autocomplete selection
+
+    private Double lng; // Longitude từ autocomplete selection
+
+    private String geoProvider; // Provider: PHOTON, GOOGLE, MAPBOX
+
+    private String placeId; // Place ID (for Google/Mapbox)
+
     // ============ GHI CHÚ & THANH TOÁN ============
     @Size(max = 500, message = "Ghi chú không được quá 500 ký tự")
     private String note; // Lời nhắn cho người nhận

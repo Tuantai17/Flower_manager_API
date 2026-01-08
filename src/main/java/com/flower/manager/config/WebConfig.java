@@ -20,6 +20,13 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
 
+    // Inject rate limit interceptor
+    private final com.flower.manager.security.RateLimitInterceptor rateLimitInterceptor;
+
+    public WebConfig(com.flower.manager.security.RateLimitInterceptor rateLimitInterceptor) {
+        this.rateLimitInterceptor = rateLimitInterceptor;
+    }
+
     /**
      * Cau hinh resource handler de serve file tu thu muc uploads
      * URL: /uploads/** -> file:uploads/
@@ -32,5 +39,14 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(uploadLocation)
                 .setCachePeriod(3600); // Cache 1 hour
+    }
+
+    /**
+     * Apply rate limiting to auth endpoints
+     */
+    @Override
+    public void addInterceptors(org.springframework.web.servlet.config.annotation.InterceptorRegistry registry) {
+        registry.addInterceptor(rateLimitInterceptor)
+                .addPathPatterns("/api/auth/login", "/api/auth/register");
     }
 }

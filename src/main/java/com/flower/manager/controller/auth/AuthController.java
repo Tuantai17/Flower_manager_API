@@ -44,10 +44,26 @@ public class AuthController {
      * @return AuthResponse với token JWT và thông tin user
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest loginRequest,
+            jakarta.servlet.http.HttpServletResponse response) {
         log.info("Login request for: {}", loginRequest.getIdentifier());
-        AuthResponse response = authService.login(loginRequest);
-        return ResponseEntity.ok(response);
+        AuthResponse authResponse = authService.login(loginRequest);
+
+        // Set JWT as HttpOnly cookie (more secure against XSS)
+        if (authResponse.isSuccess() && authResponse.getToken() != null) {
+            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("access_token",
+                    authResponse.getToken());
+            cookie.setHttpOnly(true); // Cannot be accessed by JavaScript
+            cookie.setSecure(false); // Set to true in production with HTTPS
+            cookie.setPath("/");
+            cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+            response.addCookie(cookie);
+
+            log.info("JWT cookie set for user: {}", loginRequest.getIdentifier());
+        }
+
+        return ResponseEntity.ok(authResponse);
     }
 
     /**
@@ -144,6 +160,32 @@ public class AuthController {
                 .success(true)
                 .message("Token hợp lệ")
                 .user(user)
+                .build());
+    }
+
+    /**
+     * API Đăng xuất
+     * POST /api/auth/logout
+     * 
+     * Clear JWT cookie
+     * 
+     * @return success message
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<AuthResponse> logout(jakarta.servlet.http.HttpServletResponse response) {
+        log.info("Logout request");
+
+        // Clear the access_token cookie
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("access_token", null);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(false); // Set to true in production
+        cookie.setPath("/");
+        cookie.setMaxAge(0); // Delete cookie
+        response.addCookie(cookie);
+
+        return ResponseEntity.ok(AuthResponse.builder()
+                .success(true)
+                .message("Đăng xuất thành công")
                 .build());
     }
 }

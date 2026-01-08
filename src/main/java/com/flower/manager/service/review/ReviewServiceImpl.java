@@ -10,6 +10,7 @@ import com.flower.manager.enums.OrderStatus;
 import com.flower.manager.exception.BusinessException;
 import com.flower.manager.exception.ResourceNotFoundException;
 import com.flower.manager.repository.*;
+import com.flower.manager.service.notification.ReviewNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -38,6 +39,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final ReviewNotificationService reviewNotificationService;
 
     // ================= USER METHODS =================
 
@@ -76,7 +78,7 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException("ALREADY_REVIEWED", "Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi");
         }
 
-        // 6. Create review
+        // 6. Create review - Auto approve for immediate display
         Review review = Review.builder()
                 .product(product)
                 .user(user)
@@ -84,14 +86,25 @@ public class ReviewServiceImpl implements ReviewService {
                 .rating(request.getRating())
                 .comment(request.getComment())
                 .images(convertImagesToJson(request.getImages()))
-                .status(ReviewStatus.PENDING) // Cần Admin duyệt
+                .status(ReviewStatus.APPROVED) // Auto approve - hiển thị ngay lập tức
                 .build();
 
         Review savedReview = reviewRepository.save(review);
-        log.info("User {} created review for product {} in order {}",
+        log.info("User {} created review for product {} in order {} - Auto APPROVED",
                 user.getUsername(), product.getId(), order.getOrderCode());
 
-        return mapToDTO(savedReview);
+        ReviewDTO reviewDTO = mapToDTO(savedReview);
+
+        // Send notification to admin about new review
+        try {
+            reviewNotificationService.notifyAdminNewReview(reviewDTO);
+            // Broadcast to product page for realtime display immediately
+            reviewNotificationService.broadcastProductReviewUpdate(product.getId(), reviewDTO, "NEW");
+        } catch (Exception e) {
+            log.error("Failed to send review notification: {}", e.getMessage());
+        }
+
+        return reviewDTO;
     }
 
     @Override
@@ -245,18 +258,39 @@ public class ReviewServiceImpl implements ReviewService {
     @Override
     public ReviewDTO updateReviewStatus(Long reviewId, ReviewActionRequest request) {
         Review review = getReviewById(reviewId);
+        Long userId = review.getUser().getId();
 
         review.setStatus(request.getStatus());
 
         Review savedReview = reviewRepository.save(review);
         log.info("Admin updated review {} status to {}", reviewId, request.getStatus());
 
-        return mapToDTO(savedReview);
+        ReviewDTO reviewDTO = mapToDTO(savedReview);
+
+        // Send notifications
+        try {
+            String action = request.getStatus().name();
+            reviewNotificationService.notifyAdminReviewStatusChanged(reviewDTO, action);
+
+            // Notify user if review is approved
+            if (request.getStatus() == ReviewStatus.APPROVED) {
+                reviewNotificationService.notifyUserReviewApproved(userId, reviewDTO);
+                // Broadcast to product page for realtime update
+                reviewNotificationService.broadcastProductReviewUpdate(
+                        review.getProduct().getId(), reviewDTO, "NEW");
+            }
+        } catch (Exception e) {
+            log.error("Failed to send review status notification: {}", e.getMessage());
+        }
+
+        return reviewDTO;
     }
 
     @Override
     public ReviewDTO replyToReview(Long reviewId, AdminReplyRequest request) {
         Review review = getReviewById(reviewId);
+        Long userId = review.getUser().getId();
+        Long productId = review.getProduct().getId();
 
         review.setAdminReply(request.getReply());
         review.setRepliedAt(LocalDateTime.now());
@@ -264,7 +298,21 @@ public class ReviewServiceImpl implements ReviewService {
         Review savedReview = reviewRepository.save(review);
         log.info("Admin replied to review {}", reviewId);
 
-        return mapToDTO(savedReview);
+        ReviewDTO reviewDTO = mapToDTO(savedReview);
+
+        // Send notifications
+        try {
+            // Notify user about admin reply
+            reviewNotificationService.notifyUserAdminReply(userId, reviewDTO);
+            // Broadcast to product page for realtime update
+            reviewNotificationService.broadcastProductReviewUpdate(productId, reviewDTO, "REPLY");
+            // Broadcast to admin for realtime update
+            reviewNotificationService.notifyAdminReviewStatusChanged(reviewDTO, "REPLY");
+        } catch (Exception e) {
+            log.error("Failed to send review reply notification: {}", e.getMessage());
+        }
+
+        return reviewDTO;
     }
 
     @Override
