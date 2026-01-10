@@ -1,0 +1,52 @@
+# ============================================================
+# DOCKER IGNORE FILE
+# ============================================================
+# Exclude files không cần thiết khi build Docker image
+# ============================================================
+
+# Build output
+target/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Test
+test-output/
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Upload folders (runtime data)
+uploads/
+
+# Misc
+sql/
