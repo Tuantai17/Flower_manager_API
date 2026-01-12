@@ -36,29 +36,36 @@ public class EmailVerificationService {
 
     /**
      * Tạo token xác thực email và gửi email
+     * Sử dụng REQUIRES_NEW để tách biệt transaction với parent
+     * Không throw exception nếu gửi email thất bại để không block đăng ký
      */
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void sendVerificationEmail(User user) {
         log.info("Sending verification email to: {}", user.getEmail());
 
-        // Xóa token cũ nếu có
-        tokenRepository.deleteByUser(user);
+        try {
+            // Xóa token cũ nếu có
+            tokenRepository.deleteByUser(user);
 
-        // Tạo token mới
-        String token = generateToken();
-        EmailVerificationToken verificationToken = EmailVerificationToken.builder()
-                .token(token)
-                .user(user)
-                .expiresAt(LocalDateTime.now().plusMinutes(expirationMinutes))
-                .build();
+            // Tạo token mới
+            String token = generateToken();
+            EmailVerificationToken verificationToken = EmailVerificationToken.builder()
+                    .token(token)
+                    .user(user)
+                    .expiresAt(LocalDateTime.now().plusMinutes(expirationMinutes))
+                    .build();
 
-        tokenRepository.save(verificationToken);
+            tokenRepository.save(verificationToken);
 
-        // Gửi email
-        String verificationLink = frontendUrl + "/verify-email?token=" + token;
-        sendEmail(user, verificationLink);
+            // Gửi email (không throw exception nếu thất bại)
+            String verificationLink = frontendUrl + "/verify-email?token=" + token;
+            sendEmailSafe(user, verificationLink);
 
-        log.info("Verification email sent to: {}", user.getEmail());
+            log.info("Verification email sent to: {}", user.getEmail());
+        } catch (Exception e) {
+            log.error("Failed to send verification email to {}: {}", user.getEmail(), e.getMessage());
+            // KHÔNG throw exception để không block đăng ký
+        }
     }
 
     /**
@@ -125,9 +132,9 @@ public class EmailVerificationService {
     }
 
     /**
-     * Gửi email xác thực
+     * Gửi email xác thực - không throw exception nếu thất bại
      */
-    private void sendEmail(User user, String verificationLink) {
+    private void sendEmailSafe(User user, String verificationLink) {
         String subject = "🌸 FlowerCorner - Xác thực địa chỉ email";
 
         String body = """
@@ -189,8 +196,8 @@ public class EmailVerificationService {
         try {
             emailService.sendHtmlEmail(user.getEmail(), subject, body);
         } catch (Exception e) {
-            log.error("Failed to send verification email: {}", e.getMessage());
-            throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED, "Không thể gửi email xác thực");
+            // CHỈ LOG, KHÔNG THROW - để không block đăng ký
+            log.warn("Could not send verification email to {}: {}", user.getEmail(), e.getMessage());
         }
     }
 }

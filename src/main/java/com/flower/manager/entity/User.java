@@ -60,6 +60,15 @@ public class User implements UserDetails {
     @Builder.Default
     private Boolean emailVerified = false;
 
+    /**
+     * Nguồn đăng ký của user
+     * LOCAL: Đăng ký thường (có mật khẩu)
+     * GOOGLE: Đăng ký qua Google OAuth (không có mật khẩu)
+     */
+    @Column(name = "auth_provider")
+    @Builder.Default
+    private String authProvider = "LOCAL";
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -8,18 +8,23 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
 /**
- * Custom UserDetailsService
+ * Custom UserDetailsService - Load user từ MySQL Database
  * Hỗ trợ load user bằng username, email hoặc số điện thoại
+ * Chỉ active khi KHÔNG dùng profile "inmemory"
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Profile("!inmemory")
+@Primary
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;

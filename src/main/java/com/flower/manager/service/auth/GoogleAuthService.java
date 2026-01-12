@@ -142,6 +142,18 @@ public class GoogleAuthService {
                         updated = true;
                     }
 
+                    // TỰ ĐỘNG ĐÁNH DẤU là GOOGLE user nếu:
+                    // - authProvider là null hoặc LOCAL
+                    // - User không có phoneNumber (đăng ký qua Google không có phone)
+                    if (existingUser.getPhoneNumber() == null &&
+                            (existingUser.getAuthProvider() == null
+                                    || "LOCAL".equalsIgnoreCase(existingUser.getAuthProvider()))) {
+                        existingUser.setAuthProvider("GOOGLE");
+                        existingUser.setEmailVerified(true);
+                        updated = true;
+                        log.info("Marked existing user as GOOGLE user: {}", email);
+                    }
+
                     if (updated) {
                         userRepository.save(existingUser);
                         log.info("Updated existing user info from Google: {}", email);
@@ -168,6 +180,8 @@ public class GoogleAuthService {
                             .password(passwordEncoder.encode(randomPassword))
                             .role(Role.CUSTOMER) // Mặc định CUSTOMER
                             .isActive(true)
+                            .authProvider("GOOGLE") // Đánh dấu đăng ký qua Google
+                            .emailVerified(true) // Email đã được Google xác minh
                             .build();
 
                     User savedUser = userRepository.save(newUser);
@@ -215,6 +229,8 @@ public class GoogleAuthService {
                 .address(user.getAddress())
                 .role(user.getRole().name())
                 .isActive(user.getIsActive())
+                .emailVerified(user.getEmailVerified())
+                .authProvider(user.getAuthProvider()) // GOOGLE
                 .createdAt(user.getCreatedAt())
                 .build();
     }

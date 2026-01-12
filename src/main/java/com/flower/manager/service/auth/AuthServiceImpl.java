@@ -2,6 +2,7 @@ package com.flower.manager.service.auth;
 
 import com.flower.manager.dto.auth.UserDTO;
 import com.flower.manager.dto.auth.AuthResponse;
+import com.flower.manager.dto.auth.ChangePasswordRequest;
 import com.flower.manager.dto.auth.ForgotPasswordRequest;
 import com.flower.manager.dto.auth.LoginRequest;
 import com.flower.manager.dto.auth.RegisterRequest;
@@ -337,6 +338,7 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole().name())
                 .isActive(user.getIsActive())
                 .emailVerified(user.getEmailVerified())
+                .authProvider(user.getAuthProvider()) // LOCAL hoặc GOOGLE
                 .createdAt(user.getCreatedAt())
                 .build();
     }
@@ -373,5 +375,107 @@ public class AuthServiceImpl implements AuthService {
             return "phone";
         }
         return "username";
+    }
+
+    /**
+     * Đổi mật khẩu cho user đang đăng nhập
+     * 
+     * QUAN TRỌNG:
+     * - User đăng ký thường (LOCAL): Cần nhập mật khẩu hiện tại
+     * - User đăng ký qua Google (GOOGLE): Không cần mật khẩu hiện tại (họ không có)
+     * 
+     * @param request chứa mật khẩu hiện tại và mật khẩu mới
+     * @return AuthResponse với thông báo
+     */
+    @Override
+    @Transactional
+    public AuthResponse changePassword(ChangePasswordRequest request) {
+        // Lấy thông tin user hiện tại từ SecurityContext
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Vui lòng đăng nhập để thực hiện thao tác này")
+                    .build();
+        }
+
+        String username = authentication.getName();
+        log.info("Change password request for user: {}", username);
+
+        // Tìm user trong database
+        User user = userRepository.findByUsername(username)
+                .or(() -> userRepository.findByEmail(username))
+                .or(() -> userRepository.findByPhoneNumber(normalizePhoneNumber(username)))
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+
+        // Kiểm tra nguồn đăng ký của user
+        boolean isGoogleUser = "GOOGLE".equalsIgnoreCase(user.getAuthProvider());
+
+        // Kiểm tra mật khẩu hiện tại (CHỈ với user LOCAL)
+        if (!isGoogleUser) {
+            // User đăng ký thường - BẮT BUỘC nhập mật khẩu hiện tại
+            if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Vui lòng nhập mật khẩu hiện tại")
+                        .build();
+            }
+
+            if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                log.warn("Invalid current password for user: {}", username);
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Mật khẩu hiện tại không đúng")
+                        .build();
+            }
+
+            // Kiểm tra mật khẩu mới không trùng mật khẩu cũ
+            if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+                return AuthResponse.builder()
+                        .success(false)
+                        .message("Mật khẩu mới không được trùng với mật khẩu hiện tại")
+                        .build();
+            }
+        } else {
+            // User Google - KHÔNG cần mật khẩu hiện tại
+            log.info("Google user '{}' is setting a new password", username);
+        }
+
+        // Kiểm tra mật khẩu mới và xác nhận
+        if (!Objects.equals(request.getNewPassword(), request.getConfirmPassword())) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Mật khẩu mới và xác nhận mật khẩu không khớp")
+                    .build();
+        }
+
+        // Validate độ dài mật khẩu mới
+        if (request.getNewPassword() == null || request.getNewPassword().length() < 6) {
+            return AuthResponse.builder()
+                    .success(false)
+                    .message("Mật khẩu mới phải có ít nhất 6 ký tự")
+                    .build();
+        }
+
+        // Cập nhật mật khẩu mới
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+
+        // Nếu user Google đặt mật khẩu, chuyển sang LOCAL để có thể đăng nhập bằng
+        // password
+        if (isGoogleUser) {
+            user.setAuthProvider("LOCAL");
+            log.info("User '{}' has set password, authProvider changed to LOCAL", username);
+        }
+
+        userRepository.save(user);
+
+        log.info("Password changed successfully for user: {}", username);
+
+        return AuthResponse.builder()
+                .success(true)
+                .message(isGoogleUser
+                        ? "Đặt mật khẩu thành công! Bạn có thể đăng nhập bằng email/mật khẩu."
+                        : "Đổi mật khẩu thành công!")
+                .build();
     }
 }

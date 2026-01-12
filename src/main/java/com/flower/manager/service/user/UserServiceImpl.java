@@ -92,6 +92,8 @@ public class UserServiceImpl implements UserService {
                 .phoneNumber(user.getPhoneNumber())
                 .address(user.getAddress())
                 .role(user.getRole().name())
+                .isActive(user.getIsActive())
+                .authProvider(user.getAuthProvider()) // LOCAL hoặc GOOGLE
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();

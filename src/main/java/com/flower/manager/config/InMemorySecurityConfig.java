@@ -7,15 +7,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -26,24 +27,23 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Cấu hình Spring Security với JWT + Database
- * - Chỉ active khi KHÔNG dùng profile "inmemory"
- * - Bảo vệ các API /api/admin/** cho ADMIN
- * - Cho phép truy cập công khai:
- * + /api/public/** - Public endpoints
- * + /api/auth/** - Authentication endpoints
- * + /api/products/** - Products (GET only)
- * + /api/categories/** - Categories (GET only)
- * - Xác thực tất cả các request khác
+ * Cấu hình Spring Security với InMemoryUserDetailsManager
+ * - Chỉ active khi profile = "inmemory"
+ * - Dùng cho demo/testing nhanh, không cần database
+ * 
+ * Cách chạy: mvn spring-boot:run -Dspring-boot.run.profiles=inmemory
+ * 
+ * Users mặc định:
+ * - admin:admin123 (ROLE_ADMIN)
+ * - user:user123 (ROLE_CUSTOMER)
  */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
-@Profile("!inmemory")
-public class SecurityConfig {
+@Profile("inmemory")
+public class InMemorySecurityConfig {
 
-    private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     /**
@@ -55,14 +55,34 @@ public class SecurityConfig {
     }
 
     /**
-     * Provider xác thực với UserDetailsService và PasswordEncoder
+     * Tạo InMemoryUserDetailsManager với users có sẵn
+     * - admin:admin123 (ROLE_ADMIN)
+     * - user:user123 (ROLE_CUSTOMER)
      */
     @Bean
-    public DaoAuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(userDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
-        return authProvider;
+    public InMemoryUserDetailsManager inMemoryUserDetailsManager(PasswordEncoder passwordEncoder) {
+        // Tạo admin user
+        UserDetails admin = User.builder()
+                .username("admin")
+                .password(passwordEncoder.encode("admin123"))
+                .roles("ADMIN") // Spring tự thêm prefix "ROLE_"
+                .build();
+
+        // Tạo user bình thường
+        UserDetails user = User.builder()
+                .username("user")
+                .password(passwordEncoder.encode("user123"))
+                .roles("CUSTOMER")
+                .build();
+
+        // Tạo staff user
+        UserDetails staff = User.builder()
+                .username("staff")
+                .password(passwordEncoder.encode("staff123"))
+                .roles("STAFF")
+                .build();
+
+        return new InMemoryUserDetailsManager(admin, user, staff);
     }
 
     /**
@@ -79,11 +99,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Cho phép tất cả origins (trong production nên giới hạn)
         configuration.setAllowedOriginPatterns(List.of("*"));
-        // Cho phép các HTTP methods
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        // Cho phép các headers
         configuration.setAllowedHeaders(Arrays.asList(
                 "Authorization",
                 "Content-Type",
@@ -92,11 +109,8 @@ public class SecurityConfig {
                 "Origin",
                 "Access-Control-Request-Method",
                 "Access-Control-Request-Headers"));
-        // Expose Authorization header để frontend có thể đọc
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Disposition"));
-        // Cho phép credentials (cookies, authorization headers)
         configuration.setAllowCredentials(true);
-        // Cache preflight request trong 1 giờ
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
@@ -105,63 +119,41 @@ public class SecurityConfig {
     }
 
     /**
-     * Cấu hình Security Filter Chain
+     * Cấu hình Security Filter Chain (giống SecurityConfig nhưng dùng InMemory)
      */
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // Bật CORS với cấu hình đã định nghĩa
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // Tắt CSRF vì dùng JWT (stateless)
                 .csrf(csrf -> csrf.disable())
-                // Session policy: STATELESS vì dùng JWT
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                // Cấu hình phân quyền URL
                 .authorizeHttpRequests(auth -> auth
-                        // Cho phép OPTIONS requests (CORS preflight)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Home, health, api info - không cần xác thực
                         .requestMatchers("/", "/health", "/api").permitAll()
-                        // Public endpoints - không cần xác thực
                         .requestMatchers("/api/public/**").permitAll()
-                        // Products & Categories - công khai cho tất cả (GET)
                         .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
-                        // Reviews - công khai cho xem sản phẩm reviews (GET)
                         .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
-                        // Vouchers - công khai cho xem danh sách voucher active
                         .requestMatchers(HttpMethod.GET, "/api/vouchers/active").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/vouchers/check/**").permitAll()
-                        // Banners - công khai cho hiển thị trên trang chủ
                         .requestMatchers(HttpMethod.GET, "/api/banners").permitAll()
-                        // Chat - public endpoints for chatbot (allow all methods)
                         .requestMatchers("/api/chat/**").permitAll()
-                        // Geocode - public endpoint cho địa chỉ autocomplete (OSM/Photon)
                         .requestMatchers("/api/geocode/**").permitAll()
-                        // Auth endpoints - không cần xác thực
                         .requestMatchers("/api/auth/**").permitAll()
-                        // Static resources
                         .requestMatchers("/index.html", "/static/**", "/favicon.ico", "/error").permitAll()
-                        // Uploaded files - public access for images
                         .requestMatchers("/uploads/**").permitAll()
-                        // Swagger/OpenAPI (nếu có)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
-                        // WebSocket endpoints - public cho realtime
                         .requestMatchers("/ws/**", "/ws/chat/**").permitAll()
-                        // Contact/Ticket endpoints - public để tạo ticket không cần đăng nhập
                         .requestMatchers("/api/contact/tickets").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact/tickets").permitAll()
-                        // Admin endpoints - chỉ ADMIN mới có quyền
+                        // H2 Console cho debug
+                        .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // Admin chat endpoints - ADMIN và STAFF đều có quyền
                         .requestMatchers("/api/chat/admin/**").hasAnyRole("ADMIN", "STAFF")
-                        // Staff endpoints - ADMIN và STAFF đều có quyền
                         .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "STAFF")
-                        // Tất cả các request khác cần xác thực
                         .anyRequest().authenticated())
-                // Sử dụng custom authentication provider
-                .authenticationProvider(authenticationProvider())
-                // Thêm JWT filter trước UsernamePasswordAuthenticationFilter
+                // Cho phép H2 Console hiển thị trong iframe
+                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

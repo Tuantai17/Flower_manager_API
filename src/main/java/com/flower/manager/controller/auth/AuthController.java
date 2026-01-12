@@ -2,6 +2,7 @@ package com.flower.manager.controller.auth;
 
 import com.flower.manager.dto.auth.UserDTO;
 import com.flower.manager.dto.auth.AuthResponse;
+import com.flower.manager.dto.auth.ChangePasswordRequest;
 import com.flower.manager.dto.auth.ForgotPasswordRequest;
 import com.flower.manager.dto.auth.LoginRequest;
 import com.flower.manager.dto.auth.RegisterRequest;
@@ -127,6 +128,27 @@ public class AuthController {
     public ResponseEntity<AuthResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
         log.info("Reset password request for email: {}", request.getEmail());
         AuthResponse response = authService.resetPassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * API Đổi mật khẩu (user đã đăng nhập)
+     * POST /api/auth/change-password
+     * 
+     * Body:
+     * {
+     * "currentPassword": "OldPassword123!",
+     * "newPassword": "NewPassword123!",
+     * "confirmPassword": "NewPassword123!"
+     * }
+     * 
+     * @param request chứa mật khẩu hiện tại và mật khẩu mới
+     * @return AuthResponse với thông báo
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<AuthResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        log.info("Change password request");
+        AuthResponse response = authService.changePassword(request);
         return ResponseEntity.ok(response);
     }
 

@@ -21,6 +21,7 @@ public class UserProfileDTO {
     private String address;
     private String role;
     private Boolean isActive;
+    private String authProvider; // LOCAL hoặc GOOGLE
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

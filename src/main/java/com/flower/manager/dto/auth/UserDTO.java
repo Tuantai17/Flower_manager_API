@@ -22,5 +22,6 @@ public class UserDTO {
     private String role;
     private Boolean isActive;
     private Boolean emailVerified;
+    private String authProvider; // LOCAL hoặc GOOGLE
     private LocalDateTime createdAt;
 }
