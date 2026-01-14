@@ -171,4 +171,81 @@ public class EmailService {
             log.error("Failed to send HTML email to {}: {}", to, e.getMessage());
         }
     }
+
+    /**
+     * Gửi email đặt lại mật khẩu (SYNC - Throw exception nếu thất bại)
+     * Sử dụng method này khi cần biết chắc email đã gửi thành công hay không
+     * 
+     * @param to          Email người nhận
+     * @param resetToken  Token reset password
+     * @param frontendUrl URL frontend (vd: http://localhost:3000)
+     * @throws MessagingException nếu gửi email thất bại
+     */
+    public void sendPasswordResetEmailSync(String to, String resetToken, String frontendUrl) throws MessagingException {
+        log.info("Attempting to send password reset email to: {}", to);
+
+        String resetLink = frontendUrl + "/reset-password?token=" + resetToken + "&email=" + to;
+
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
+
+        helper.setFrom(fromEmail);
+        helper.setTo(to);
+        helper.setSubject("Đặt lại mật khẩu - Flower Shop");
+
+        String htmlContent = """
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                        .content { background: #f9f9f9; padding: 30px; border: 1px solid #ddd; }
+                        .button { display: inline-block; background: #ff6b6b; color: white !important; text-decoration: none; padding: 12px 30px; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+                        .button:hover { background: #ee5a5a; }
+                        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+                        .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 10px; border-radius: 5px; margin-top: 15px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🌸 Flower Shop</h1>
+                        </div>
+                        <div class="content">
+                            <h2>Xin chào!</h2>
+                            <p>Bạn đã yêu cầu đặt lại mật khẩu cho tài khoản Flower Shop của mình.</p>
+                            <p>Vui lòng click vào nút bên dưới để đặt lại mật khẩu:</p>
+                            <center>
+                                <a href="%s" class="button">Đặt Lại Mật Khẩu</a>
+                            </center>
+                            <div class="warning">
+                                <strong>⚠️ Lưu ý:</strong>
+                                <ul>
+                                    <li>Link này sẽ hết hạn sau <strong>30 phút</strong></li>
+                                    <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này</li>
+                                </ul>
+                            </div>
+                            <p style="margin-top: 20px; font-size: 12px; color: #666;">
+                                Nếu nút không hoạt động, hãy copy link sau vào trình duyệt:<br>
+                                <a href="%s">%s</a>
+                            </p>
+                        </div>
+                        <div class="footer">
+                            <p>Trân trọng,<br><strong>Flower Shop Team</strong></p>
+                            <p>© 2024 Flower Shop. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+                .formatted(resetLink, resetLink, resetLink);
+
+        helper.setText(htmlContent, true);
+
+        mailSender.send(mimeMessage);
+        log.info("Password reset email sent successfully to: {}", to);
+    }
 }

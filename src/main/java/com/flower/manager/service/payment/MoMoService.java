@@ -84,25 +84,41 @@ public class MoMoService {
 
     /**
      * Tạo yêu cầu thanh toán MoMo
+     * 
+     * momoType options:
+     * - "auto" hoặc null: Hiển thị trang chọn phương thức (QR + ATM/Visa)
+     * - "wallet": Chỉ QR/Ví MoMo
+     * - "card": Chỉ thẻ ATM/Visa/Master
      */
     public MomoPaymentResponse createPayment(Long amount, String orderId, String orderInfo, String momoType) {
         String requestId = String.valueOf(System.currentTimeMillis());
 
-        log.info("[MOMO:CREATE] Preparing request: orderId={}, amount={}, requestId={}",
-                orderId, amount, requestId);
+        log.info("[MOMO:CREATE] Preparing request: orderId={}, amount={}, requestId={}, momoType={}",
+                orderId, amount, requestId, momoType);
 
         try {
             String extraData = "";
 
-            // Xử lý requestType theo momoType
-            String requestType = "captureWallet"; // Mặc định là Ví (QR)
-            if ("CARD".equalsIgnoreCase(momoType)) {
-                requestType = "payWithATM"; // Thẻ ATM / Visa / Master
+            // Xác định requestType dựa trên momoType
+            // payWithMethod: Hiển thị TRANG CHỌN phương thức (QR + ATM/Visa)
+            // captureWallet: Chỉ QR/Ví MoMo
+            // payWithATM: Chỉ thẻ ATM/Visa/Master
+            String requestType;
+
+            if ("wallet".equalsIgnoreCase(momoType)) {
+                requestType = "captureWallet";
+                log.info("[MOMO:CREATE] Mode: Wallet only (QR)");
+            } else if ("card".equalsIgnoreCase(momoType)) {
+                requestType = "payWithATM";
+                log.info("[MOMO:CREATE] Mode: Card only (ATM/Visa/Master)");
+            } else {
+                // Mặc định: Hiển thị trang chọn phương thức thanh toán
+                requestType = "payWithMethod";
+                log.info("[MOMO:CREATE] Mode: Payment selection page (all methods)");
             }
 
-            log.debug("[MOMO:CREATE] Request type: {} (input: {})", requestType, momoType);
-
             // Tạo raw signature theo thứ tự alphabet (MoMo v2 requirement)
+            // QUAN TRỌNG: KHÔNG có payType trong signature khi dùng payWithMethod
             String rawHash = "accessKey=" + accessKey +
                     "&amount=" + amount +
                     "&extraData=" + extraData +
@@ -133,8 +149,9 @@ public class MoMoService {
             payload.put("extraData", extraData);
             payload.put("requestType", requestType);
             payload.put("signature", signature);
+            // KHÔNG set payType để MoMo hiển thị trang chọn phương thức
 
-            log.info("[MOMO:CREATE] Sending request to MoMo API: endpoint={}", endpoint);
+            log.info("[MOMO:CREATE] Sending request to MoMo API: endpoint={}, requestType={}", endpoint, requestType);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);

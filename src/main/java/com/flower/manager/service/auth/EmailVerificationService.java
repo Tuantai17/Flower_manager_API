@@ -194,7 +194,8 @@ public class EmailVerificationService {
                         verificationLink);
 
         try {
-            emailService.sendHtmlEmail(user.getEmail(), subject, body);
+            // Sử dụng ASYNC để không block đăng ký
+            emailService.sendHtmlEmailAsync(user.getEmail(), subject, body);
         } catch (Exception e) {
             // CHỈ LOG, KHÔNG THROW - để không block đăng ký
             log.warn("Could not send verification email to {}: {}", user.getEmail(), e.getMessage());

@@ -48,23 +48,49 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(
             @Valid @RequestBody LoginRequest loginRequest,
             jakarta.servlet.http.HttpServletResponse response) {
-        log.info("Login request for: {}", loginRequest.getIdentifier());
-        AuthResponse authResponse = authService.login(loginRequest);
+        log.info("=== LOGIN REQUEST ===");
+        log.info("Identifier: {}", loginRequest.getIdentifier());
 
-        // Set JWT as HttpOnly cookie (more secure against XSS)
-        if (authResponse.isSuccess() && authResponse.getToken() != null) {
-            jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("access_token",
-                    authResponse.getToken());
-            cookie.setHttpOnly(true); // Cannot be accessed by JavaScript
-            cookie.setSecure(false); // Set to true in production with HTTPS
-            cookie.setPath("/");
-            cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-            response.addCookie(cookie);
+        try {
+            AuthResponse authResponse = authService.login(loginRequest);
 
-            log.info("JWT cookie set for user: {}", loginRequest.getIdentifier());
+            // Set JWT as HttpOnly cookie (more secure against XSS)
+            if (authResponse.isSuccess() && authResponse.getToken() != null) {
+                jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("access_token",
+                        authResponse.getToken());
+                cookie.setHttpOnly(true); // Cannot be accessed by JavaScript
+                cookie.setSecure(false); // Set to true in production with HTTPS
+                cookie.setPath("/");
+                cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+                response.addCookie(cookie);
+
+                log.info("JWT cookie set for user: {}", loginRequest.getIdentifier());
+                log.info("Login successful for: {}", loginRequest.getIdentifier());
+            }
+
+            return ResponseEntity.ok(authResponse);
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            log.warn("Login failed for '{}': Invalid credentials", loginRequest.getIdentifier());
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message("Thông tin đăng nhập không chính xác")
+                    .build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        } catch (org.springframework.security.authentication.DisabledException e) {
+            log.warn("Login failed for '{}': Account disabled", loginRequest.getIdentifier());
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message("Tài khoản đã bị vô hiệu hóa")
+                    .build();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        } catch (Exception e) {
+            log.error("Login failed for '{}': {}", loginRequest.getIdentifier(), e.getMessage(), e);
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message("Đăng nhập thất bại: " + e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
-
-        return ResponseEntity.ok(authResponse);
     }
 
     /**
@@ -85,9 +111,38 @@ public class AuthController {
      */
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest registerRequest) {
-        log.info("Register request for username: {}", registerRequest.getUsername());
-        AuthResponse response = authService.register(registerRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        log.info("=== REGISTER REQUEST ===");
+        log.info("Username: {}, Email: {}, Phone: {}",
+                registerRequest.getUsername(),
+                registerRequest.getEmail(),
+                registerRequest.getPhoneNumber());
+
+        try {
+            AuthResponse response = authService.register(registerRequest);
+            log.info("Registration successful for username: {}", registerRequest.getUsername());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (com.flower.manager.exception.ResourceAlreadyExistsException e) {
+            log.warn("Registration failed - already exists: {}", e.getMessage());
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+        } catch (com.flower.manager.exception.BusinessException e) {
+            log.warn("Registration failed - business error: {}", e.getMessage());
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        } catch (Exception e) {
+            log.error("Registration failed for '{}': {}", registerRequest.getUsername(), e.getMessage(), e);
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message("Đăng ký thất bại: " + e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 
     /**
@@ -105,8 +160,35 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ResponseEntity<AuthResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         log.info("Forgot password request for email: {}", request.getEmail());
-        AuthResponse response = authService.forgotPassword(request);
-        return ResponseEntity.ok(response);
+        try {
+            AuthResponse response = authService.forgotPassword(request);
+            return ResponseEntity.ok(response);
+        } catch (com.flower.manager.exception.ResourceNotFoundException e) {
+            log.warn("Forgot password failed - email not found: {}", request.getEmail());
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (com.flower.manager.exception.BusinessException e) {
+            log.warn("Forgot password failed - business error: {}", e.getMessage());
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message(e.getMessage())
+                    .build();
+            // EMAIL_SEND_FAILED or ACCOUNT_DISABLED
+            HttpStatus status = "EMAIL_SEND_FAILED".equals(e.getErrorCode())
+                    ? HttpStatus.SERVICE_UNAVAILABLE
+                    : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(errorResponse);
+        } catch (Exception e) {
+            log.error("Forgot password failed for '{}': {}", request.getEmail(), e.getMessage(), e);
+            AuthResponse errorResponse = AuthResponse.builder()
+                    .success(false)
+                    .message("Đã xảy ra lỗi. Vui lòng thử lại sau.")
+                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 
     /**

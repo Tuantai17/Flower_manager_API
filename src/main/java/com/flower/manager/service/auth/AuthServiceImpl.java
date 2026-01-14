@@ -16,6 +16,7 @@ import com.flower.manager.exception.ResourceNotFoundException;
 import com.flower.manager.repository.PasswordResetTokenRepository;
 import com.flower.manager.repository.UserRepository;
 import com.flower.manager.security.JwtUtils;
+import com.flower.manager.service.email.AsyncEmailService;
 import com.flower.manager.service.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +49,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
-    private final EmailVerificationService emailVerificationService;
+    private final AsyncEmailService asyncEmailService;
 
     /**
      * URL Frontend dùng cho link reset password
@@ -69,6 +70,32 @@ public class AuthServiceImpl implements AuthService {
         String identifier = loginRequest.getIdentifier().trim();
 
         log.info("Login attempt for identifier: {}", identifier);
+
+        // --- DEBUGGING START ---
+        // Kiểm tra thủ công để debug lỗi 401
+        try {
+            java.util.Optional<User> debugUser = userRepository.findByUsernameOrEmailOrPhoneNumber(identifier);
+            if (debugUser.isEmpty()) {
+                log.error("DEBUG: Không tìm thấy user trong Database với identifier '{}'", identifier);
+            } else {
+                User u = debugUser.get();
+                log.info("DEBUG: Tìm thấy user. ID: {}, Username: {}, Email: {}, Active: {}, Provider: {}",
+                        u.getId(), u.getUsername(), u.getEmail(), u.getIsActive(), u.getAuthProvider());
+
+                boolean passwordMatch = passwordEncoder.matches(loginRequest.getPassword(), u.getPassword());
+                log.info("DEBUG: Password match result: {}", passwordMatch);
+
+                if (!passwordMatch) {
+                    log.warn("DEBUG: Mật khẩu không khớp!");
+                    // log.warn("DEBUG: Input: {}", loginRequest.getPassword()); // Không log
+                    // password user nhập
+                    // log.warn("DEBUG: Stored: {}", u.getPassword());
+                }
+            }
+        } catch (Exception e) {
+            log.error("DEBUG: Error checking user manually: {}", e.getMessage());
+        }
+        // --- DEBUGGING END ---
 
         try {
             // Xác thực username/email/phone và password
@@ -153,14 +180,9 @@ public class AuthServiceImpl implements AuthService {
         log.info("New user registered successfully: username={}, role={}",
                 savedUser.getUsername(), savedUser.getRole());
 
-        // === GỬI EMAIL XÁC THỰC ===
-        try {
-            emailVerificationService.sendVerificationEmail(savedUser);
-            log.info("Verification email sent to: {}", savedUser.getEmail());
-        } catch (Exception e) {
-            log.error("Failed to send verification email: {}", e.getMessage());
-            // Không throw exception để không block đăng ký
-        }
+        // === GỬI EMAIL XÁC THỰC (ASYNC - không block request) ===
+        asyncEmailService.sendVerificationEmailAsync(savedUser);
+        log.info("Verification email queued for: {}", savedUser.getEmail());
 
         // === TỰ ĐỘNG ĐĂNG NHẬP SAU KHI ĐĂNG KÝ ===
         Authentication authentication = authenticationManager.authenticate(
@@ -217,8 +239,19 @@ public class AuthServiceImpl implements AuthService {
         log.info("Created new password reset token for email: {}, expires at: {}",
                 email, resetToken.getExpiryDate());
 
-        // 4. Gửi email chứa link reset password (async)
-        emailService.sendPasswordResetEmail(email, tokenValue, frontendUrl);
+        // 4. Gửi email chứa link reset password (SYNC - để bắt exception)
+        try {
+            emailService.sendPasswordResetEmailSync(email, tokenValue, frontendUrl);
+            log.info("Password reset email sent successfully to: {}", email);
+        } catch (jakarta.mail.MessagingException e) {
+            log.error("Failed to send password reset email to {}: {}", email, e.getMessage(), e);
+
+            // Xóa token vừa tạo vì email không gửi được
+            passwordResetTokenRepository.delete(resetToken);
+
+            throw new BusinessException("EMAIL_SEND_FAILED",
+                    "Không thể gửi email đặt lại mật khẩu. Vui lòng kiểm tra địa chỉ email hoặc thử lại sau.");
+        }
 
         return AuthResponse.builder()
                 .success(true)
