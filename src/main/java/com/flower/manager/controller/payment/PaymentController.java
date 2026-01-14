@@ -62,8 +62,16 @@ public class PaymentController {
      */
     @PostMapping("/notify")
     public ResponseEntity<String> momoNotify(@RequestBody Map<String, Object> data) {
-        String orderCode = (String) data.get("orderId");
+        String momoOrderId = (String) data.get("orderId");
         Integer resultCode = data.get("resultCode") != null ? Integer.parseInt(data.get("resultCode").toString()) : -1;
+
+        // Parse orderCode từ momoOrderId (có thể có suffix _R1234 khi retry)
+        // Ví dụ: ORD8122113638FD_R5678 -> ORD8122113638FD
+        String orderCode = momoOrderId;
+        if (momoOrderId != null && momoOrderId.contains("_R")) {
+            orderCode = momoOrderId.substring(0, momoOrderId.lastIndexOf("_R"));
+            log.info("[PAYMENT:IPN] Parsed orderCode from momoOrderId: {} -> {}", momoOrderId, orderCode);
+        }
 
         log.info("[PAYMENT:IPN] Received callback: orderCode={}, resultCode={}", orderCode, resultCode);
         log.debug("[PAYMENT:IPN] Full callback data: {}", data);
@@ -78,7 +86,7 @@ public class PaymentController {
 
             String transId = data.get("transId") != null ? data.get("transId").toString() : null;
 
-            // Tìm order theo orderCode
+            // Tìm order theo orderCode (đã parse)
             Order order = orderRepository.findByOrderCode(orderCode).orElse(null);
 
             if (order == null) {

@@ -395,11 +395,22 @@ public class OrderServiceImpl implements OrderService {
     public OrderDTO processMomoReturn(java.util.Map<String, String> params) {
         log.info("Processing MoMo return params: {}", params);
 
-        String orderCode = params.get("orderId");
+        String momoOrderId = params.get("orderId");
         int resultCode = Integer.parseInt(params.getOrDefault("resultCode", "-1"));
 
-        Order order = orderRepository.findByOrderCode(orderCode)
-                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "Đơn hàng không tồn tại: " + orderCode));
+        // Parse orderCode từ momoOrderId (có thể có suffix _R1234 khi retry)
+        // Ví dụ: ORD8122113638FD_R5678 -> ORD8122113638FD
+        final String parsedOrderCode;
+        if (momoOrderId != null && momoOrderId.contains("_R")) {
+            parsedOrderCode = momoOrderId.substring(0, momoOrderId.lastIndexOf("_R"));
+            log.info("Parsed orderCode from momoOrderId: {} -> {}", momoOrderId, parsedOrderCode);
+        } else {
+            parsedOrderCode = momoOrderId;
+        }
+
+        Order order = orderRepository.findByOrderCode(parsedOrderCode)
+                .orElseThrow(
+                        () -> new BusinessException("ORDER_NOT_FOUND", "Đơn hàng không tồn tại: " + parsedOrderCode));
 
         // Nếu resultCode = 0, kiểm tra và cập nhật nếu chưa được IPN xử lý
         if (resultCode == 0) {
@@ -412,7 +423,7 @@ public class OrderServiceImpl implements OrderService {
                 order.setStatus(OrderStatus.CONFIRMED);
                 orderRepository.save(order);
 
-                log.info("Confirmed payment via redirect (backup) for order: {}", orderCode);
+                log.info("Confirmed payment via redirect (backup) for order: {}", parsedOrderCode);
 
                 try {
                     sendPaymentConfirmationEmail(order);
@@ -423,7 +434,7 @@ public class OrderServiceImpl implements OrderService {
             return mapToDTO(order);
         } else {
             // Nếu thanh toán thất bại, vẫn trả về order để frontend hiển thị
-            log.warn("MoMo payment failed for order: {} with resultCode: {}", orderCode, resultCode);
+            log.warn("MoMo payment failed for order: {} with resultCode: {}", parsedOrderCode, resultCode);
             // Trả về order với trạng thái hiện tại thay vì throw exception
             return mapToDTO(order);
         }

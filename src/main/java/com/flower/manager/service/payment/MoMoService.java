@@ -56,7 +56,8 @@ public class MoMoService {
     private String notifyUrl;
 
     /**
-     * Tạo yêu cầu thanh toán MoMo từ Order ID
+     * Tạo payment từ Order ID
+     * Hỗ trợ retry: thêm suffix để tránh lỗi trùng orderId từ MoMo
      */
     public MomoPaymentResponse createPaymentFromOrder(Long orderId, String momoType) {
         log.info("[MOMO:CREATE] Starting payment creation for orderId={}, type={}", orderId, momoType);
@@ -75,9 +76,13 @@ public class MoMoService {
         log.info("[MOMO:CREATE] Order found: orderCode={}, amount={}",
                 order.getOrderCode(), order.getFinalPrice());
 
+        // Tạo unique orderId cho MoMo để tránh lỗi trùng khi retry
+        // Format: ORD123_R{timestamp cuối}
+        String momoOrderId = order.getOrderCode() + "_R" + (System.currentTimeMillis() % 10000);
+
         return createPayment(
                 order.getFinalPrice().longValue(),
-                order.getOrderCode(),
+                momoOrderId,
                 "Thanh toán đơn hàng " + order.getOrderCode(),
                 momoType);
     }
@@ -100,21 +105,18 @@ public class MoMoService {
             String extraData = "";
 
             // Xác định requestType dựa trên momoType
-            // payWithMethod: Hiển thị TRANG CHỌN phương thức (QR + ATM/Visa)
-            // captureWallet: Chỉ QR/Ví MoMo
-            // payWithATM: Chỉ thẻ ATM/Visa/Master
+            // captureWallet: QR/Ví MoMo (ổn định nhất)
+            // payWithATM: Thẻ ATM/Visa/Master
+            // Lưu ý: payWithMethod gây lỗi treo trên môi trường test MoMo
             String requestType;
 
-            if ("wallet".equalsIgnoreCase(momoType)) {
-                requestType = "captureWallet";
-                log.info("[MOMO:CREATE] Mode: Wallet only (QR)");
-            } else if ("card".equalsIgnoreCase(momoType)) {
+            if ("card".equalsIgnoreCase(momoType) || "atm".equalsIgnoreCase(momoType)) {
                 requestType = "payWithATM";
-                log.info("[MOMO:CREATE] Mode: Card only (ATM/Visa/Master)");
+                log.info("[MOMO:CREATE] Mode: Card (ATM/Visa/Master)");
             } else {
-                // Mặc định: Hiển thị trang chọn phương thức thanh toán
-                requestType = "payWithMethod";
-                log.info("[MOMO:CREATE] Mode: Payment selection page (all methods)");
+                // Mặc định: QR/Ví MoMo (ổn định nhất)
+                requestType = "captureWallet";
+                log.info("[MOMO:CREATE] Mode: Wallet (QR)");
             }
 
             // Tạo raw signature theo thứ tự alphabet (MoMo v2 requirement)
