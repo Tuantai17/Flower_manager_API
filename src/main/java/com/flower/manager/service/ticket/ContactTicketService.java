@@ -33,7 +33,7 @@ public interface ContactTicketService {
     /**
      * User gửi tin nhắn mới vào ticket
      */
-    TicketMessageDTO addUserMessage(Long ticketId, String content, Long userId, String senderName);
+    TicketMessageDTO addUserMessage(Long ticketId, String content, List<String> images, Long userId, String senderName);
 
     // ==================== ADMIN APIs ====================
 

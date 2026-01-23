@@ -20,6 +20,7 @@ public class UserDTO {
     private String phoneNumber;
     private String address;
     private String role;
+    private String avatar;
     private Boolean isActive;
     private Boolean emailVerified;
     private String authProvider; // LOCAL hoặc GOOGLE

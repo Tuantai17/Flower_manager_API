@@ -150,9 +150,15 @@ public class SavedVoucherServiceImpl implements SavedVoucherService {
 
         savedVoucherRepository.findByUserAndVoucher(user, voucher)
                 .ifPresent(sv -> {
-                    sv.markAsUsed();
-                    savedVoucherRepository.save(sv);
-                    log.info("Marked voucher {} as used for user {}", voucher.getCode(), user.getUsername());
+                    // Sử dụng 1 lượt thay vì đánh dấu đã dùng hoàn toàn
+                    if (sv.useOne()) {
+                        savedVoucherRepository.save(sv);
+                        log.info("Used 1 voucher {} for user {}. Remaining: {}",
+                                voucher.getCode(), user.getUsername(), sv.getRemainingUses());
+                    } else {
+                        log.warn("Voucher {} has no remaining uses for user {}",
+                                voucher.getCode(), user.getUsername());
+                    }
                 });
     }
 
@@ -181,7 +187,14 @@ public class SavedVoucherServiceImpl implements SavedVoucherService {
         LocalDateTime now = LocalDateTime.now();
 
         boolean isExpired = v.getEndDate() != null && v.getEndDate().isBefore(now);
-        boolean isUsed = !sv.getIsAvailable();
+
+        // Tính số lượt còn lại
+        int quantity = sv.getQuantity() != null ? sv.getQuantity() : 1;
+        int usedCount = sv.getUsedCount() != null ? sv.getUsedCount() : 0;
+        int remainingUses = Math.max(0, quantity - usedCount);
+
+        // Đã sử dụng hết khi remainingUses = 0 hoặc isAvailable = false
+        boolean isUsed = remainingUses == 0 || !sv.getIsAvailable();
 
         // Tính số ngày còn lại
         Integer daysRemaining = null;
@@ -206,12 +219,16 @@ public class SavedVoucherServiceImpl implements SavedVoucherService {
                 .voucherId(v.getId())
                 .code(v.getCode())
                 .description(v.getDescription())
+                .voucherType(v.getVoucherType() != null ? v.getVoucherType().name() : "ORDER")
                 .isPercent(v.getIsPercent())
                 .discountValue(v.getDiscountValue())
                 .minOrderValue(v.getMinOrderValue())
                 .maxDiscount(v.getMaxDiscount())
                 .startDate(v.getStartDate())
                 .endDate(v.getEndDate())
+                .quantity(quantity)
+                .usedCount(usedCount)
+                .remainingUses(remainingUses)
                 .isAvailable(!isUsed && !isExpired && v.isValid())
                 .isExpired(isExpired)
                 .isUsed(isUsed)

@@ -18,10 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * Implementation của NewsletterService
+ * Sử dụng MỘT voucher chung cho tất cả thành viên mới
  */
 @Service
 @RequiredArgsConstructor
@@ -33,10 +33,10 @@ public class NewsletterServiceImpl implements NewsletterService {
     private final UserRepository userRepository;
     private final SavedVoucherRepository savedVoucherRepository;
 
-    // Cấu hình voucher welcome
+    // Cấu hình voucher welcome - MỘT MÃ CHUNG
+    private static final String WELCOME_VOUCHER_CODE = "WELCOME30";
     private static final int WELCOME_DISCOUNT_PERCENT = 30;
     private static final BigDecimal MAX_DISCOUNT = new BigDecimal("100000");
-    private static final int VOUCHER_VALID_DAYS = 30;
 
     @Override
     @Transactional
@@ -49,45 +49,24 @@ public class NewsletterServiceImpl implements NewsletterService {
             throw new BusinessException("Email này đã đăng ký nhận tin trước đó!");
         }
 
-        // Tạo mã voucher unique
-        String voucherCode = generateUniqueVoucherCode();
-
-        // Tính ngày hết hạn
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime expiryDate = now.plusDays(VOUCHER_VALID_DAYS);
-
-        // Tạo voucher trong database
-        Voucher voucher = Voucher.builder()
-                .code(voucherCode)
-                .description("Voucher chào mừng - Giảm " + WELCOME_DISCOUNT_PERCENT + "% cho đơn hàng đầu tiên")
-                .isPercent(true)
-                .discountValue(new BigDecimal(WELCOME_DISCOUNT_PERCENT))
-                .minOrderValue(BigDecimal.ZERO) // Không yêu cầu đơn tối thiểu
-                .maxDiscount(MAX_DISCOUNT)
-                .usageLimit(1) // Chỉ dùng 1 lần
-                .usageCount(0)
-                .startDate(now)
-                .endDate(expiryDate)
-                .isActive(true)
-                .build();
-
-        voucherRepository.save(voucher);
-        log.info("Created welcome voucher: {} for email: {}", voucherCode, normalizedEmail);
+        // Lấy hoặc tạo voucher Welcome chung
+        Voucher welcomeVoucher = getOrCreateWelcomeVoucher();
 
         // Lưu thông tin subscriber
         NewsletterSubscriber subscriber = NewsletterSubscriber.builder()
                 .email(normalizedEmail)
-                .voucherCode(voucherCode)
+                .voucherCode(WELCOME_VOUCHER_CODE)
                 .isActive(true)
                 .build();
 
         subscriberRepository.save(subscriber);
-        log.info("New newsletter subscriber: {}", normalizedEmail);
+        log.info("New newsletter subscriber: {} - assigned voucher: {}", normalizedEmail, WELCOME_VOUCHER_CODE);
 
         // Tự động lưu voucher vào kho nếu user đã có tài khoản với email này
-        boolean autoSaved = autoSaveVoucherToUserWallet(normalizedEmail, voucher);
+        boolean autoSaved = autoSaveVoucherToUserWallet(normalizedEmail, welcomeVoucher);
 
-        String message = "Đăng ký thành công! Mã giảm giá " + WELCOME_DISCOUNT_PERCENT + "% của bạn: " + voucherCode;
+        String message = "Đăng ký thành công! Dùng mã " + WELCOME_VOUCHER_CODE + " để giảm " + WELCOME_DISCOUNT_PERCENT
+                + "% cho đơn hàng đầu tiên!";
         if (autoSaved) {
             message += " (Đã lưu vào Kho Voucher của bạn)";
         }
@@ -95,16 +74,55 @@ public class NewsletterServiceImpl implements NewsletterService {
         // Trả về response
         return NewsletterSubscribeResponse.builder()
                 .email(normalizedEmail)
-                .voucherCode(voucherCode)
+                .voucherCode(WELCOME_VOUCHER_CODE)
                 .discountPercent(WELCOME_DISCOUNT_PERCENT)
                 .maxDiscount(formatCurrency(MAX_DISCOUNT))
-                .expiryDate(expiryDate)
+                .expiryDate(welcomeVoucher.getEndDate())
                 .message(message)
                 .build();
     }
 
     /**
+     * Lấy hoặc tạo voucher Welcome chung
+     * Voucher này dùng chung cho tất cả thành viên mới
+     */
+    private Voucher getOrCreateWelcomeVoucher() {
+        // Tìm voucher Welcome trong database
+        Optional<Voucher> existingVoucher = voucherRepository.findByCode(WELCOME_VOUCHER_CODE);
+
+        if (existingVoucher.isPresent()) {
+            log.debug("Using existing welcome voucher: {}", WELCOME_VOUCHER_CODE);
+            return existingVoucher.get();
+        }
+
+        // Nếu chưa có, tạo mới voucher Welcome
+        log.info("Creating new shared welcome voucher: {}", WELCOME_VOUCHER_CODE);
+
+        LocalDateTime now = LocalDateTime.now();
+        // Voucher có hiệu lực 1 năm, không giới hạn số lần sử dụng
+        LocalDateTime expiryDate = now.plusYears(1);
+
+        Voucher voucher = Voucher.builder()
+                .code(WELCOME_VOUCHER_CODE)
+                .description("Voucher chào mừng thành viên mới - Giảm " + WELCOME_DISCOUNT_PERCENT
+                        + "% cho đơn hàng đầu tiên")
+                .isPercent(true)
+                .discountValue(new BigDecimal(WELCOME_DISCOUNT_PERCENT))
+                .minOrderValue(BigDecimal.ZERO) // Không yêu cầu đơn tối thiểu
+                .maxDiscount(MAX_DISCOUNT)
+                .usageLimit(null) // Không giới hạn số lần sử dụng chung
+                .usageCount(0)
+                .startDate(now)
+                .endDate(expiryDate)
+                .isActive(true)
+                .build();
+
+        return voucherRepository.save(voucher);
+    }
+
+    /**
      * Tự động lưu voucher vào kho của user nếu email đã đăng ký tài khoản
+     * Mỗi user chỉ có thể sử dụng voucher này MỘT LẦN
      * 
      * @return true nếu đã lưu thành công, false nếu không tìm thấy user
      */
@@ -125,6 +143,8 @@ public class NewsletterServiceImpl implements NewsletterService {
                 savedVoucherRepository.save(savedVoucher);
                 log.info("Auto-saved welcome voucher {} to user {}'s wallet", voucher.getCode(), user.getEmail());
                 return true;
+            } else {
+                log.debug("User {} already has voucher {} in wallet", user.getEmail(), voucher.getCode());
             }
         }
 
@@ -146,34 +166,6 @@ public class NewsletterServiceImpl implements NewsletterService {
             subscriberRepository.save(subscriber);
             log.info("Unsubscribed email: {}", normalizedEmail);
         });
-    }
-
-    /**
-     * Tạo mã voucher unique với format WELCOME-XXXX
-     */
-    private String generateUniqueVoucherCode() {
-        String code;
-        int attempts = 0;
-        do {
-            // Format: WELCOME-XXXX (4 ký tự random)
-            String randomPart = UUID.randomUUID().toString()
-                    .replace("-", "")
-                    .substring(0, 4)
-                    .toUpperCase();
-            code = "WELCOME-" + randomPart;
-            attempts++;
-
-            if (attempts > 10) {
-                // Nếu quá nhiều lần thử, dùng format dài hơn
-                code = "WELCOME-" + UUID.randomUUID().toString()
-                        .replace("-", "")
-                        .substring(0, 8)
-                        .toUpperCase();
-                break;
-            }
-        } while (voucherRepository.existsByCode(code));
-
-        return code;
     }
 
     /**

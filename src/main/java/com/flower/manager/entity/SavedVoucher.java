@@ -35,14 +35,29 @@ public class SavedVoucher {
     private Voucher voucher;
 
     /**
-     * Trạng thái: true = chưa sử dụng, false = đã sử dụng
+     * Số lượng voucher còn lại có thể sử dụng
+     * Mặc định = 1 (mỗi voucher dùng 1 lần)
+     */
+    @Column(name = "quantity")
+    @Builder.Default
+    private Integer quantity = 1;
+
+    /**
+     * Số lần đã sử dụng voucher này
+     */
+    @Column(name = "used_count")
+    @Builder.Default
+    private Integer usedCount = 0;
+
+    /**
+     * Trạng thái: true = còn sử dụng được, false = đã hết lượt
      */
     @Column(name = "is_available")
     @Builder.Default
     private Boolean isAvailable = true;
 
     /**
-     * Ngày sử dụng voucher (nếu đã dùng)
+     * Ngày sử dụng voucher lần cuối (nếu đã dùng)
      */
     @Column(name = "used_at")
     private LocalDateTime usedAt;
@@ -56,13 +71,44 @@ public class SavedVoucher {
     @PrePersist
     protected void onCreate() {
         savedAt = LocalDateTime.now();
+        if (quantity == null)
+            quantity = 1;
+        if (usedCount == null)
+            usedCount = 0;
     }
 
     /**
-     * Đánh dấu voucher đã sử dụng
+     * Sử dụng 1 lượt voucher
+     * 
+     * @return true nếu còn lượt để dùng, false nếu hết
+     */
+    public boolean useOne() {
+        if (quantity > usedCount) {
+            this.usedCount++;
+            this.usedAt = LocalDateTime.now();
+
+            // Nếu đã dùng hết lượt, đánh dấu không khả dụng
+            if (usedCount >= quantity) {
+                this.isAvailable = false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Đánh dấu voucher đã sử dụng hết (backward compatibility)
      */
     public void markAsUsed() {
         this.isAvailable = false;
+        this.usedCount = this.quantity;
         this.usedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Số lượt còn lại có thể sử dụng
+     */
+    public int getRemainingUses() {
+        return Math.max(0, quantity - usedCount);
     }
 }

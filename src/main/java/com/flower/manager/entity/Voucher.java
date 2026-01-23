@@ -31,6 +31,15 @@ public class Voucher {
     private String description;
 
     /**
+     * Loại voucher: ORDER (giảm tiền hàng) hoặc SHIPPING (giảm phí ship)
+     * Mặc định là ORDER
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "voucher_type", length = 20)
+    @Builder.Default
+    private com.flower.manager.enums.VoucherType voucherType = com.flower.manager.enums.VoucherType.ORDER;
+
+    /**
      * Loại giảm giá: true = phần trăm, false = số tiền cố định
      */
     @Column(name = "is_percent", nullable = false)

@@ -1,0 +1,156 @@
+{
+  "name": "Auto Generate News from Products",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days"
+            }
+          ]
+        }
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "id": "schedule-trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT name, price, description FROM products ORDER BY created_at DESC LIMIT 5;"
+      },
+      "name": "Get Newest Products",
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "mySql": {
+          "id": "YOUR_MYSQL_CREDENTIAL_ID",
+          "name": "XAMPP MySQL"
+        }
+      },
+      "id": "get-products"
+    },
+    {
+      "parameters": {
+        "model": "gpt-3.5-turbo",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are a professional content writer for a Flower Shop."
+            },
+            {
+              "role": "user",
+              "content": "Based on the following flower products:\n{{ JSON.stringify($json) }}\n\nWrite a short, engaging blog post about these new arrivals.\nRETURN ONLY RAW JSON. No Markdown formatting.\nFormat:\n{\n  \"title\": \"Creative Title Here\",\n  \"slug\": \"creative-title-here-timestamp\",\n  \"summary\": \"Short summary...\",\n  \"content\": \"<p>HTML content here...</p>\",\n  \"author\": \"FlowerBot\",\n  \"thumbnail\": \"https://images.unsplash.com/photo-1562690868-60bbe7621e0c\"\n}"
+            }
+          ]
+        },
+        "jsonOutput": true
+      },
+      "name": "AI Content Generator",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI Account"
+        }
+      },
+      "id": "ai-generator"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8080/api/public/articles",
+        "sendBody": true,
+        "contentType": "json",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "slug",
+              "value": "={{ $json.slug }}"
+            },
+            {
+              "name": "summary",
+              "value": "={{ $json.summary }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $json.content }}"
+            },
+            {
+              "name": "author",
+              "value": "={{ $json.author }}"
+            },
+            {
+              "name": "thumbnail",
+              "value": "={{ $json.thumbnail }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Post to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ],
+      "id": "post-to-backend"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get Newest Products",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Newest Products": {
+      "main": [
+        [
+          {
+            "node": "AI Content Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Content Generator": {
+      "main": [
+        [
+          {
+            "node": "Post to Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -134,6 +134,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/vouchers/check/**").permitAll()
                         // Banners - công khai cho hiển thị trên trang chủ
                         .requestMatchers(HttpMethod.GET, "/api/banners").permitAll()
+                        // News/Articles - công khai cho tin tức (GET only)
+                        .requestMatchers(HttpMethod.GET, "/api/news/**").permitAll()
                         // Chat - public endpoints for chatbot (allow all methods)
                         .requestMatchers("/api/chat/**").permitAll()
                         // Geocode - public endpoint cho địa chỉ autocomplete (OSM/Photon)
@@ -151,6 +153,10 @@ public class SecurityConfig {
                         // Contact/Ticket endpoints - public để tạo ticket không cần đăng nhập
                         .requestMatchers("/api/contact/tickets").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact/tickets").permitAll()
+                        // Shipping endpoints - public cho tính phí ship
+                        .requestMatchers("/api/shipping/**").permitAll()
+                        // Checkout preview - public cho preview tổng tiền
+                        .requestMatchers(HttpMethod.POST, "/api/checkout/preview").permitAll()
                         // Admin endpoints - chỉ ADMIN mới có quyền
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // Admin chat endpoints - ADMIN và STAFF đều có quyền

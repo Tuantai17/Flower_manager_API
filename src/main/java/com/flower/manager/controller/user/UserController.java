@@ -53,4 +53,16 @@ public class UserController {
         UserProfileDTO profile = userService.updateCurrentUserProfile(request);
         return ResponseEntity.ok(ApiResponse.success(profile, "Cập nhật thông tin thành công"));
     }
+
+    /**
+     * Upload avatar cho user hiện tại
+     * POST /api/users/me/avatar
+     */
+    @PostMapping(value = "/me/avatar", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<String>> uploadAvatar(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        log.info("Upload avatar request");
+        String avatarUrl = userService.uploadAvatar(file);
+        return ResponseEntity.ok(ApiResponse.success(avatarUrl, "Upload avatar thành công"));
+    }
 }

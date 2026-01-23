@@ -48,6 +48,9 @@ public class User implements UserDetails {
 
     private String address;
 
+    @Column(name = "avatar")
+    private String avatar;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;

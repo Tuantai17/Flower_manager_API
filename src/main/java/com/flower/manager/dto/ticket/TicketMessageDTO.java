@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * DTO hiển thị tin nhắn trong ticket
@@ -21,6 +22,7 @@ public class TicketMessageDTO {
     private Long senderId;
     private String senderName;
     private String content;
+    private List<String> images;
     private Boolean isRead;
     private LocalDateTime createdAt;
 }

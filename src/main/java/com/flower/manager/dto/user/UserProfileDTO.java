@@ -19,6 +19,7 @@ public class UserProfileDTO {
     private String fullName;
     private String phoneNumber;
     private String address;
+    private String avatar;
     private String role;
     private Boolean isActive;
     private String authProvider; // LOCAL hoặc GOOGLE

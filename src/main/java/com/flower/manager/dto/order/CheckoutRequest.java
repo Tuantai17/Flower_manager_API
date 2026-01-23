@@ -69,7 +69,22 @@ public class CheckoutRequest {
     @Size(max = 500, message = "Ghi chú không được quá 500 ký tự")
     private String note; // Lời nhắn cho người nhận
 
-    private String voucherCode;
+    private String voucherCode; // Deprecated, use orderVoucherCode
+
+    /**
+     * Mã voucher giảm giá đơn hàng (ORDER)
+     */
+    private String orderVoucherCode;
+
+    /**
+     * Mã voucher giảm phí vận chuyển (SHIPPING)
+     */
+    private String shippingVoucherCode;
+
+    /**
+     * Phí vận chuyển (đã được frontend tính toán từ API shipping)
+     */
+    private java.math.BigDecimal shippingFee;
 
     @NotNull(message = "Phương thức thanh toán không được để trống")
     @Builder.Default

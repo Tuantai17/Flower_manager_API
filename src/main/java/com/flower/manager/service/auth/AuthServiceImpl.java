@@ -369,6 +369,7 @@ public class AuthServiceImpl implements AuthService {
                 .phoneNumber(user.getPhoneNumber())
                 .address(user.getAddress())
                 .role(user.getRole().name())
+                .avatar(user.getAvatar())
                 .isActive(user.getIsActive())
                 .emailVerified(user.getEmailVerified())
                 .authProvider(user.getAuthProvider()) // LOCAL hoặc GOOGLE

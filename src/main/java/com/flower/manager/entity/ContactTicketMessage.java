@@ -59,6 +59,12 @@ public class ContactTicketMessage {
     private String content;
 
     /**
+     * Ảnh đính kèm (JSON array of URLs)
+     */
+    @Column(name = "images", length = 2000)
+    private String images;
+
+    /**
      * Đã đọc chưa
      */
     @Column(name = "is_read")

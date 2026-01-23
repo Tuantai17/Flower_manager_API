@@ -74,7 +74,7 @@ public class ApiResponse<T> {
     }
 
     /**
-     * Tạo response thành công với data và message
+     * Tao response thanh cong voi data va message
      */
     public static <T> ApiResponse<T> success(T data, String message) {
         return ApiResponse.<T>builder()

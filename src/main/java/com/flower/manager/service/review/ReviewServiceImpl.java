@@ -293,10 +293,12 @@ public class ReviewServiceImpl implements ReviewService {
         Long productId = review.getProduct().getId();
 
         review.setAdminReply(request.getReply());
+        review.setAdminReplyImages(convertImagesToJson(request.getImages()));
         review.setRepliedAt(LocalDateTime.now());
 
         Review savedReview = reviewRepository.save(review);
-        log.info("Admin replied to review {}", reviewId);
+        log.info("Admin replied to review {} with {} images", reviewId,
+                request.getImages() != null ? request.getImages().size() : 0);
 
         ReviewDTO reviewDTO = mapToDTO(savedReview);
 
@@ -349,6 +351,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .status(review.getStatus())
                 .statusDisplayName(review.getStatus().getDisplayName())
                 .adminReply(review.getAdminReply())
+                .adminReplyImages(convertJsonToImages(review.getAdminReplyImages()))
                 .repliedAt(review.getRepliedAt())
                 .createdAt(review.getCreatedAt())
                 .updatedAt(review.getUpdatedAt())

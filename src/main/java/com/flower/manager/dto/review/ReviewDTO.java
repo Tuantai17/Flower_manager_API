@@ -46,6 +46,7 @@ public class ReviewDTO {
 
     // Admin reply
     private String adminReply;
+    private List<String> adminReplyImages;
     private LocalDateTime repliedAt;
 
     // Timestamps

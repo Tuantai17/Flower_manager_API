@@ -19,7 +19,7 @@ import java.util.Optional;
 public interface VoucherRepository extends JpaRepository<Voucher, Long> {
 
         /**
-         * Tìm voucher theo mã
+         * Tìm voucher mã
          */
         Optional<Voucher> findByCode(String code);
 
@@ -27,6 +27,11 @@ public interface VoucherRepository extends JpaRepository<Voucher, Long> {
          * Tìm voucher theo mã (case insensitive)
          */
         Optional<Voucher> findByCodeIgnoreCase(String code);
+
+        /**
+         * Tìm voucher active theo mã
+         */
+        Optional<Voucher> findByCodeAndIsActiveTrue(String code);
 
         /**
          * Kiểm tra mã voucher đã tồn tại chưa

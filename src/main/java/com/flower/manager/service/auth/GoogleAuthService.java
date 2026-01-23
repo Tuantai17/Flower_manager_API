@@ -228,6 +228,7 @@ public class GoogleAuthService {
                 .phoneNumber(user.getPhoneNumber())
                 .address(user.getAddress())
                 .role(user.getRole().name())
+                .avatar(user.getAvatar())
                 .isActive(user.getIsActive())
                 .emailVerified(user.getEmailVerified())
                 .authProvider(user.getAuthProvider()) // GOOGLE

@@ -58,7 +58,11 @@ public class VoucherServiceImpl implements VoucherService {
     public List<VoucherDTO> getValidVouchers() {
         log.info("Getting valid vouchers for public");
         return voucherRepository.findValidVouchers(LocalDateTime.now())
-                .stream().map(this::mapToDTO).collect(Collectors.toList());
+                .stream()
+                // Loại trừ voucher WELCOME - chỉ nhận được qua đăng ký newsletter
+                .filter(v -> !v.getCode().toUpperCase().startsWith("WELCOME"))
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
     }
 
     @Override

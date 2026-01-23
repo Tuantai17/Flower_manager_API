@@ -108,34 +108,83 @@ public class OrderServiceImpl implements OrderService {
             orderItems.add(orderItem);
         }
 
-        // 3. Áp dụng voucher (nếu có)
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        Voucher voucher = null;
+        // 3. Áp dụng voucher (hỗ trợ 2 loại: ORDER và SHIPPING)
+        BigDecimal orderDiscount = BigDecimal.ZERO;
+        BigDecimal shippingDiscount = BigDecimal.ZERO;
+        Voucher orderVoucher = null;
+        Voucher shippingVoucher = null;
 
-        if (request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
-            voucher = voucherRepository.findByCodeIgnoreCase(request.getVoucherCode().trim())
-                    .orElseThrow(() -> new BusinessException("VOUCHER_NOT_FOUND", "Mã giảm giá không tồn tại"));
+        // Lấy mã voucher (ưu tiên orderVoucherCode, fallback voucherCode cũ)
+        String orderVoucherCode = request.getOrderVoucherCode() != null
+                ? request.getOrderVoucherCode()
+                : request.getVoucherCode();
 
-            if (!voucher.isValid()) {
+        // Áp dụng voucher ORDER (giảm tiền hàng)
+        if (orderVoucherCode != null && !orderVoucherCode.isBlank()) {
+            orderVoucher = voucherRepository.findByCodeIgnoreCase(orderVoucherCode.trim())
+                    .orElseThrow(() -> new BusinessException("VOUCHER_NOT_FOUND",
+                            "Mã giảm giá không tồn tại: " + orderVoucherCode));
+
+            if (!orderVoucher.isValid()) {
                 throw new BusinessException("VOUCHER_INVALID", "Mã giảm giá đã hết hạn hoặc hết lượt sử dụng");
             }
 
-            if (voucher.getMinOrderValue() != null && totalPrice.compareTo(voucher.getMinOrderValue()) < 0) {
+            if (orderVoucher.getMinOrderValue() != null && totalPrice.compareTo(orderVoucher.getMinOrderValue()) < 0) {
                 throw new BusinessException("VOUCHER_MIN_ORDER",
-                        "Đơn hàng phải từ " + voucher.getMinOrderValue() + "đ để áp dụng mã này");
+                        "Đơn hàng phải từ " + orderVoucher.getMinOrderValue() + "đ để áp dụng mã này");
             }
 
-            discountAmount = voucher.calculateDiscount(totalPrice);
-            voucher.use(); // Tăng usageCount
-            voucherRepository.save(voucher);
-            log.info("Applied voucher: {} - Discount: {}", voucher.getCode(), discountAmount);
+            orderDiscount = orderVoucher.calculateDiscount(totalPrice);
+            orderVoucher.use();
+            voucherRepository.save(orderVoucher);
+            log.info("Applied ORDER voucher: {} - Discount: {}", orderVoucher.getCode(), orderDiscount);
         }
 
-        // 4. Tính phí ship (có thể mở rộng logic ở đây)
-        BigDecimal shippingFee = BigDecimal.ZERO; // Miễn phí ship tạm thời
+        // 4. Lấy phí ship từ request (đã được frontend tính toán)
+        BigDecimal shippingFee = request.getShippingFee() != null ? request.getShippingFee() : BigDecimal.ZERO;
 
-        // 5. Tính giá cuối
-        BigDecimal finalPrice = totalPrice.subtract(discountAmount).add(shippingFee);
+        // Áp dụng voucher SHIPPING (giảm phí ship)
+        if (request.getShippingVoucherCode() != null && !request.getShippingVoucherCode().isBlank()) {
+            shippingVoucher = voucherRepository.findByCodeIgnoreCase(request.getShippingVoucherCode().trim())
+                    .orElseThrow(() -> new BusinessException("VOUCHER_NOT_FOUND",
+                            "Mã giảm ship không tồn tại: " + request.getShippingVoucherCode()));
+
+            if (!shippingVoucher.isValid()) {
+                throw new BusinessException("VOUCHER_INVALID", "Mã giảm ship đã hết hạn hoặc hết lượt sử dụng");
+            }
+
+            // Check minOrderValue với totalPrice (tiền hàng)
+            if (shippingVoucher.getMinOrderValue() != null
+                    && totalPrice.compareTo(shippingVoucher.getMinOrderValue()) < 0) {
+                throw new BusinessException("VOUCHER_MIN_ORDER",
+                        "Đơn hàng phải từ " + shippingVoucher.getMinOrderValue() + "đ để áp dụng mã ship này");
+            }
+
+            // Tính discount theo phí ship
+            if (Boolean.TRUE.equals(shippingVoucher.getIsPercent())) {
+                shippingDiscount = shippingFee.multiply(shippingVoucher.getDiscountValue())
+                        .divide(BigDecimal.valueOf(100));
+                if (shippingVoucher.getMaxDiscount() != null
+                        && shippingDiscount.compareTo(shippingVoucher.getMaxDiscount()) > 0) {
+                    shippingDiscount = shippingVoucher.getMaxDiscount();
+                }
+            } else {
+                shippingDiscount = shippingVoucher.getDiscountValue();
+            }
+            // Không vượt quá phí ship
+            if (shippingDiscount.compareTo(shippingFee) > 0) {
+                shippingDiscount = shippingFee;
+            }
+
+            shippingVoucher.use();
+            voucherRepository.save(shippingVoucher);
+            log.info("Applied SHIPPING voucher: {} - Discount: {}", shippingVoucher.getCode(), shippingDiscount);
+        }
+
+        // 5. Tính tổng discount và giá cuối
+        BigDecimal totalDiscount = orderDiscount.add(shippingDiscount);
+        BigDecimal shippingFinal = shippingFee.subtract(shippingDiscount);
+        BigDecimal finalPrice = totalPrice.subtract(orderDiscount).add(shippingFinal);
         if (finalPrice.compareTo(BigDecimal.ZERO) < 0) {
             finalPrice = BigDecimal.ZERO;
         }
@@ -169,10 +218,10 @@ public class OrderServiceImpl implements OrderService {
                 .note(request.getNote())
                 // Giá trị
                 .totalPrice(totalPrice)
-                .discountAmount(discountAmount)
-                .shippingFee(shippingFee)
+                .discountAmount(totalDiscount)
+                .shippingFee(shippingFinal) // Phí ship sau khi trừ voucher
                 .finalPrice(finalPrice)
-                .voucher(voucher)
+                .voucher(orderVoucher) // Lưu voucher ORDER chính
                 // Thanh toán
                 .paymentMethod(request.getPaymentMethod())
                 .status(OrderStatus.PENDING)

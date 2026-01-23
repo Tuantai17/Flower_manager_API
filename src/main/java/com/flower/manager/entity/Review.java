@@ -85,6 +85,12 @@ public class Review {
     @Column(name = "admin_reply", columnDefinition = "TEXT")
     private String adminReply;
 
+    /**
+     * Ảnh đính kèm trong phản hồi Admin (JSON array của URLs)
+     */
+    @Column(name = "admin_reply_images", length = 2000)
+    private String adminReplyImages;
+
     @Column(name = "replied_at")
     private LocalDateTime repliedAt;
 

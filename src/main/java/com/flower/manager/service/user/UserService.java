@@ -17,4 +17,9 @@ public interface UserService {
      * Cập nhật thông tin profile của user hiện tại
      */
     UserProfileDTO updateCurrentUserProfile(UpdateProfileRequest request);
+
+    /**
+     * Upload avatar cho user hiện tại
+     */
+    String uploadAvatar(org.springframework.web.multipart.MultipartFile file);
 }

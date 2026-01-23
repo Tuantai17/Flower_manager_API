@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * DTO cho admin phản hồi ticket
  */
@@ -17,6 +19,8 @@ public class AdminReplyRequest {
 
     @NotBlank(message = "Nội dung phản hồi không được để trống")
     private String content;
+
+    private List<String> images;
 
     private String newStatus; // Optional: OPEN, IN_PROGRESS, RESOLVED, CLOSED
 }

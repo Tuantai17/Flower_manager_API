@@ -124,14 +124,18 @@ public class ContactTicketController {
     @Operation(summary = "Gửi tin nhắn mới vào ticket")
     public ResponseEntity<ApiResponse<TicketMessageDTO>> sendMessage(
             @PathVariable Long id,
-            @RequestBody Map<String, String> body,
+            @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserDetails userDetails) {
 
-        String content = body.get("content");
+        String content = (String) body.get("content");
         if (content == null || content.trim().isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.badRequest("Nội dung tin nhắn không được để trống"));
         }
+
+        // Parse images from request
+        @SuppressWarnings("unchecked")
+        List<String> images = body.get("images") instanceof List ? (List<String>) body.get("images") : null;
 
         Long userId = null;
         String senderName = null;
@@ -142,7 +146,7 @@ public class ContactTicketController {
             senderName = user.getFullName();
         }
 
-        TicketMessageDTO message = ticketService.addUserMessage(id, content.trim(), userId, senderName);
+        TicketMessageDTO message = ticketService.addUserMessage(id, content.trim(), images, userId, senderName);
         return ResponseEntity.ok(ApiResponse.success(message, "Tin nhắn đã được gửi"));
     }
 }

@@ -22,6 +22,11 @@ public class SavedVoucherDTO {
     private String code;
     private String description;
 
+    /**
+     * Loại voucher: ORDER hoặc SHIPPING
+     */
+    private String voucherType;
+
     private Boolean isPercent;
     private BigDecimal discountValue;
     private BigDecimal minOrderValue;
@@ -31,11 +36,26 @@ public class SavedVoucherDTO {
     private LocalDateTime endDate;
 
     /**
+     * Số lượng voucher đã lưu (có thể dùng)
+     */
+    private Integer quantity;
+
+    /**
+     * Số lần đã sử dụng
+     */
+    private Integer usedCount;
+
+    /**
+     * Số lượt còn lại có thể sử dụng
+     */
+    private Integer remainingUses;
+
+    /**
      * Trạng thái của saved voucher
      */
-    private Boolean isAvailable; // Chưa sử dụng
+    private Boolean isAvailable; // Còn sử dụng được
     private Boolean isExpired; // Đã hết hạn
-    private Boolean isUsed; // Đã sử dụng
+    private Boolean isUsed; // Đã sử dụng hết
 
     /**
      * Status text để hiển thị: AVAILABLE, EXPIRING, EXPIRED, USED

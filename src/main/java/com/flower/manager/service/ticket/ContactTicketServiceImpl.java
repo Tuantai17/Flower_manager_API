@@ -12,6 +12,9 @@ import com.flower.manager.repository.ContactTicketMessageRepository;
 import com.flower.manager.repository.ContactTicketRepository;
 import com.flower.manager.repository.UserRepository;
 import com.flower.manager.service.notification.TicketNotificationService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -32,6 +35,7 @@ public class ContactTicketServiceImpl implements ContactTicketService {
     private final ContactTicketMessageRepository messageRepository;
     private final UserRepository userRepository;
     private final TicketNotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     // ==================== USER APIs ====================
 
@@ -74,6 +78,7 @@ public class ContactTicketServiceImpl implements ContactTicketService {
                 .senderId(userId)
                 .senderName(request.getName())
                 .content(request.getMessage())
+                .images(toImagesJson(request.getImages()))
                 .isRead(false)
                 .build();
 
@@ -136,7 +141,8 @@ public class ContactTicketServiceImpl implements ContactTicketService {
     }
 
     @Override
-    public TicketMessageDTO addUserMessage(Long ticketId, String content, Long userId, String senderName) {
+    public TicketMessageDTO addUserMessage(Long ticketId, String content, List<String> images, Long userId,
+            String senderName) {
         ContactTicket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ticket"));
 
@@ -150,6 +156,7 @@ public class ContactTicketServiceImpl implements ContactTicketService {
                 .senderId(userId)
                 .senderName(senderName != null ? senderName : ticket.getName())
                 .content(content)
+                .images(toImagesJson(images))
                 .isRead(false)
                 .build();
 
@@ -252,6 +259,7 @@ public class ContactTicketServiceImpl implements ContactTicketService {
                 .senderId(adminId)
                 .senderName(adminName != null ? adminName : "Admin")
                 .content(request.getContent())
+                .images(toImagesJson(request.getImages()))
                 .isRead(false)
                 .build();
 
@@ -404,8 +412,34 @@ public class ContactTicketServiceImpl implements ContactTicketService {
                 .senderId(message.getSenderId())
                 .senderName(message.getSenderName())
                 .content(message.getContent())
+                .images(parseImagesJson(message.getImages()))
                 .isRead(message.getIsRead())
                 .createdAt(message.getCreatedAt())
                 .build();
+    }
+
+    private String toImagesJson(List<String> images) {
+        if (images == null || images.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(images);
+        } catch (JsonProcessingException e) {
+            log.error("Error converting images to JSON: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private List<String> parseImagesJson(String json) {
+        if (json == null || json.isBlank()) {
+            return Collections.emptyList();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {
+            });
+        } catch (JsonProcessingException e) {
+            log.error("Error parsing images JSON: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 }

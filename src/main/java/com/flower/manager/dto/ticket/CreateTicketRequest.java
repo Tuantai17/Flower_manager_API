@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * DTO tạo ticket mới
  */
@@ -35,4 +37,6 @@ public class CreateTicketRequest {
 
     @NotBlank(message = "Nội dung không được để trống")
     private String message;
+
+    private List<String> images; // Ảnh đính kèm (URLs)
 }
