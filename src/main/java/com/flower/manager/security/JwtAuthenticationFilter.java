@@ -38,17 +38,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String jwt = parseJwt(request);
 
             if (jwt != null && jwtUtils.validateJwtToken(jwt)) {
-                String username = jwtUtils.getUsernameFromJwtToken(jwt);
+                String username = jwtUtils.getUsernameFromJwtToken(jwt); // Lấy username từ Token
 
-                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
+                UserDetails userDetails = userDetailsService.loadUserByUsername(username); // Load thông tin User từ db
+                // Tạo đối tượng Authentication
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
                         userDetails.getAuthorities());
 
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
+                // "Đóng dấu" xác thực vào Context (cho phép đi qua)
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception e) {

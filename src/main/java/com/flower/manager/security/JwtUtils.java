@@ -30,13 +30,14 @@ public class JwtUtils {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
+    // Ký Token bằng thuật toán HMAC-SHA (HS256/HS512)
     public String generateJwtToken(Authentication authentication) {
         UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
 
         return Jwts.builder()
                 .subject(userPrincipal.getUsername())
                 .issuedAt(new Date())
-                .expiration(new Date((new Date()).getTime() + jwtExpirationMs))
+                .expiration(new Date((new Date()).getTime() + jwtExpirationMs))// Hết hạn sau thời gian config
                 .signWith(getSigningKey())
                 .compact();
     }
@@ -50,6 +51,7 @@ public class JwtUtils {
                 .getSubject();
     }
 
+    // Kiểm tra Token có bị giả mạo hoặc hết hạn không
     public boolean validateJwtToken(String authToken) {
         try {
             Jwts.parser()
@@ -70,4 +72,4 @@ public class JwtUtils {
         }
         return false;
     }
-}
+} // Log lỗi cụ thể: Hết hạn, Chữ ký sai, Token rỗng...

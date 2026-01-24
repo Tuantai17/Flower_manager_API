@@ -37,7 +37,7 @@ public class CustomUserDetailsService implements UserDetailsService {
      * @throws UsernameNotFoundException nếu không tìm thấy user
      */
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true) // Hỗ trợ đăng nhập bằng Username OR Email OR Số điện thoại
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
         log.debug("Attempting to load user by identifier: {}", identifier);
 
@@ -47,7 +47,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                     return new UsernameNotFoundException(
                             "Không tìm thấy tài khoản với thông tin: " + identifier);
                 });
-
+        // Kiểm tra tài khoản có bị khóa không
         if (!user.getIsActive()) {
             log.warn("User account is disabled: {}", identifier);
             throw new UsernameNotFoundException("Tài khoản đã bị vô hiệu hóa");
