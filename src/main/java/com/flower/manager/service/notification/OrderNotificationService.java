@@ -66,6 +66,50 @@ public class OrderNotificationService {
     }
 
     /**
+     * Thông báo cho user khi đặt hàng thành công
+     */
+    @Transactional
+    public void notifyUserOrderCreated(Order order) {
+        Long userId = order.getUser() != null ? order.getUser().getId() : null;
+        if (userId == null)
+            return;
+
+        log.info("Notifying user {} about new order created: {}", userId, order.getOrderCode());
+
+        String formattedPrice = formatCurrency(order.getFinalPrice());
+        String title = "Đặt hàng thành công #" + order.getOrderCode();
+        String content = "Đơn hàng " + formattedPrice + " đang chờ xử lý";
+        String url = "/profile/orders/" + order.getId();
+
+        // Save to DB
+        Notification notification = Notification.builder()
+                .recipientId(userId)
+                .recipientRole("USER")
+                .type("ORDER_CREATED")
+                .title(title)
+                .content(content)
+                .url(url)
+                .referenceId(order.getId())
+                .isRead(false)
+                .build();
+        notificationRepository.save(notification);
+
+        // Broadcast realtime
+        NotificationPayload payload = NotificationPayload.builder()
+                .id(notification.getId())
+                .type("ORDER_CREATED")
+                .title(title)
+                .content(content)
+                .url(url)
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        messagingTemplate.convertAndSend("/topic/user/" + userId + "/notifications", payload);
+        log.info("Sent order created notification to user {} for order: {}", userId, order.getOrderCode());
+    }
+
+    /**
      * Thông báo cho user khi đơn hàng thay đổi trạng thái
      */
     @Transactional

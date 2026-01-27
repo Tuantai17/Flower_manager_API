@@ -254,9 +254,10 @@ public class OrderServiceImpl implements OrderService {
             log.error("Failed to send order confirmation email: {}", e.getMessage());
         }
 
-        // 11. Gửi thông báo realtime cho admin
+        // 11. Gửi thông báo realtime cho admin và user
         try {
             orderNotificationService.notifyAdminNewOrder(savedOrder);
+            orderNotificationService.notifyUserOrderCreated(savedOrder);
         } catch (Exception e) {
             log.error("Failed to send order notification: {}", e.getMessage());
         }
@@ -371,6 +372,14 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("Updated order {} status: {} -> {}", order.getOrderCode(), oldStatus, newStatus);
 
+        // Gửi thông báo realtime cho user khi đơn hàng thay đổi trạng thái
+        try {
+            orderNotificationService.notifyUserOrderStatusChange(savedOrder, newStatus.getDisplayName());
+            log.info("Sent order status notification to user for order: {}", savedOrder.getOrderCode());
+        } catch (Exception e) {
+            log.error("Failed to send order status notification: {}", e.getMessage());
+        }
+
         return mapToDTO(savedOrder);
     }
 
@@ -414,6 +423,17 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("Cancelled order: {} by user: {}", order.getOrderCode(), currentUser.getUsername());
 
+        // Gửi thông báo realtime cho user khi đơn hàng bị hủy
+        try {
+            orderNotificationService.notifyUserOrderStatusChange(savedOrder, "Đã hủy");
+            // Thông báo cho admin nếu user hủy
+            if (!isAdmin) {
+                orderNotificationService.notifyAdminOrderCancelled(savedOrder, request.getReason());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send cancel notification: {}", e.getMessage());
+        }
+
         return mapToDTO(savedOrder);
     }
 
@@ -435,6 +455,14 @@ public class OrderServiceImpl implements OrderService {
             sendPaymentConfirmationEmail(savedOrder);
         } catch (Exception e) {
             log.error("Failed to send payment confirmation email: {}", e.getMessage());
+        }
+
+        // Gửi thông báo realtime cho user và admin
+        try {
+            orderNotificationService.notifyUserOrderStatusChange(savedOrder, "Đã xác nhận thanh toán");
+            orderNotificationService.notifyAdminPaymentReceived(savedOrder);
+        } catch (Exception e) {
+            log.error("Failed to send payment notification: {}", e.getMessage());
         }
 
         return mapToDTO(savedOrder);
