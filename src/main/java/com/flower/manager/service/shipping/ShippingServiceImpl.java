@@ -108,7 +108,12 @@ public class ShippingServiceImpl implements ShippingService {
                             .orElseThrow(() -> new ResourceNotFoundException(
                                     "Mã voucher không tồn tại: " + orderVoucherCode));
 
-                    if (voucher.isValid()) {
+                    // Kiểm tra loại voucher phải là ORDER (hoặc NULL cho backward compatibility)
+                    if (voucher.getVoucherType() != null
+                            && voucher.getVoucherType() != com.flower.manager.enums.VoucherType.ORDER) {
+                        warnings.add("Mã " + orderVoucherCode
+                                + " là voucher giảm phí vận chuyển, không áp dụng được cho đơn hàng");
+                    } else if (voucher.isValid()) {
                         BigDecimal discount = voucher.calculateDiscount(BigDecimal.valueOf(subtotal));
                         orderDiscount = discount.intValue();
 
@@ -139,7 +144,12 @@ public class ShippingServiceImpl implements ShippingService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                         "Mã voucher không tồn tại: " + shippingVoucherCode));
 
-                        if (voucher.isValid()) {
+                        if (voucher.getVoucherType() != null
+                                && voucher.getVoucherType() != com.flower.manager.enums.VoucherType.SHIPPING) {
+                            // Nếu voucher không phải loại SHIPPING, cảnh báo người dùng
+                            warnings.add("Mã " + shippingVoucherCode
+                                    + " là voucher giảm giá đơn hàng, không áp dụng được cho phí vận chuyển");
+                        } else if (voucher.isValid()) {
                             // Check minOrderValue với SUBTOTAL (tiền hàng), không phải phí ship
                             BigDecimal minOrder = voucher.getMinOrderValue() != null ? voucher.getMinOrderValue()
                                     : BigDecimal.ZERO;
