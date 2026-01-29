@@ -188,8 +188,10 @@ public class Order {
 
     /**
      * Kiểm tra có thể hủy đơn không
+     * Chỉ cho phép hủy khi đơn hàng đang ở trạng thái PENDING (chờ xác nhận)
+     * Sau khi đã xác nhận (CONFIRMED), không thể hủy nữa
      */
     public boolean isCancellable() {
-        return status == OrderStatus.PENDING || status == OrderStatus.CONFIRMED;
+        return status == OrderStatus.PENDING;
     }
 }
