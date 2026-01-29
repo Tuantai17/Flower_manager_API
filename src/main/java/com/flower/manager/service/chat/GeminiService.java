@@ -101,13 +101,15 @@ public class GeminiService {
         // System context - CRITICAL: Force using ONLY real product data
         prompt.append("[SYSTEM] Bạn là trợ lý ảo AI của cửa hàng hoa FlowerCorner/Flower Shop.\n\n");
         prompt.append("=== QUY TẮC TUYỆT ĐỐI BẮT BUỘC ===\n");
-        prompt.append("1. CHỈ ĐƯỢC sử dụng thông tin sản phẩm từ DỮ LIỆU THỰC bên dưới.\n");
-        prompt.append("2. Khi khách hỏi về sản phẩm/giá, PHẢI trích dẫn TÊN CHÍNH XÁC và GIÁ TIỀN từ danh sách.\n");
-        prompt.append("3. TUYỆT ĐỐI KHÔNG được bịa đặt tên sản phẩm hoặc giá tiền không có trong danh sách.\n");
+        prompt.append("1. CHỈ ĐƯỢC trả lời sản phẩm ĐÚNG với yêu cầu của khách hàng.\n");
         prompt.append(
-                "4. Nếu không tìm thấy sản phẩm theo yêu cầu, hãy nói rõ và GỢI Ý các sản phẩm CÓ SẴN trong danh sách.\n");
-        prompt.append("5. Trả lời ngắn gọn, thân thiện bằng tiếng Việt, sử dụng emoji phù hợp.\n");
-        prompt.append("6. Luôn đề cập giá tiền khi nói về sản phẩm cụ thể.\n\n");
+                "2. Khi khách hỏi 'dưới X đồng', CHỈ liệt kê sản phẩm có giá < X. KHÔNG gợi ý sản phẩm có giá cao hơn.\n");
+        prompt.append("3. Khi khách hỏi về loại hoa cụ thể, CHỈ trả lời về loại đó, KHÔNG lan man sang loại khác.\n");
+        prompt.append("4. TRẢ LỜI NGẮN GỌN, đúng trọng tâm. Không viết dài dòng.\n");
+        prompt.append("5. Liệt kê sản phẩm dạng danh sách ngắn: Tên - Giá.\n");
+        prompt.append("6. TUYỆT ĐỐI KHÔNG bịa đặt tên sản phẩm hoặc giá tiền không có trong danh sách.\n");
+        prompt.append("7. Nếu không có sản phẩm phù hợp, chỉ nói 'Xin lỗi, hiện không có sản phẩm phù hợp'.\n");
+        prompt.append("8. Dùng tiếng Việt thân thiện, có thể dùng emoji.\n\n");
 
         // Add REAL product data FIRST - this is the source of truth
         if (context != null && !context.isEmpty()) {
@@ -128,8 +130,7 @@ public class GeminiService {
         // Add current user message with strong instruction
         prompt.append("[KHÁCH HÀNG HỎI]: ").append(userMessage).append("\n\n");
         prompt.append(
-                "[HƯỚNG DẪN]: Trả lời câu hỏi trên sử dụng CHÍNH XÁC thông tin sản phẩm và giá tiền từ DỮ LIỆU THỰC. ");
-        prompt.append("Nếu hỏi về giá, liệt kê các sản phẩm cụ thể với giá chính xác từ danh sách:");
+                "[HƯỚNG DẪN]: Trả lời NGẮN GỌN, CHỈ liệt kê sản phẩm ĐÚNG với yêu cầu. KHÔNG gợi ý sản phẩm ngoài tiêu chí khách yêu cầu:");
 
         try {
             // Build JSON request

@@ -347,35 +347,160 @@ public class ChatServiceImpl implements ChatService {
 
     /**
      * Detect product-related keywords and suggest products
+     * Enhanced to handle price queries and category-based searches
+     * FIXED: Prioritize category matching over generic keywords
      */
     private List<ChatResponse.ProductSuggestion> detectAndSuggestProducts(String message) {
         List<ChatResponse.ProductSuggestion> suggestions = new ArrayList<>();
-
-        // Simple keyword detection
         String lowerMessage = message.toLowerCase();
-        List<String> keywords = Arrays.asList("hồng", "hướng dương", "lan", "ly", "cúc", "tulip", "baby", "hoa");
 
-        boolean hasProductKeyword = keywords.stream().anyMatch(lowerMessage::contains);
+        // Check for price-based queries
+        BigDecimal maxPrice = extractMaxPrice(lowerMessage);
+        BigDecimal minPrice = extractMinPrice(lowerMessage);
 
-        if (hasProductKeyword) {
-            // Find matching products
-            productRepository.findAll().stream()
+        // Category keywords - PRIORITIZED
+        Map<String, List<String>> categoryKeywords = new java.util.LinkedHashMap<>();
+        categoryKeywords.put("sinh nhật", Arrays.asList("sinh nhật", "birthday", "tặng người yêu", "lãng mạn"));
+        categoryKeywords.put("khai trương", Arrays.asList("khai trương", "chúc mừng", "kệ hoa"));
+        categoryKeywords.put("chia buồn", Arrays.asList("chia buồn", "tang", "phúng điếu"));
+        categoryKeywords.put("cây cảnh", Arrays.asList("chậu", "cây", "mini", "cây cảnh"));
+        categoryKeywords.put("hoa hồng", Arrays.asList("hồng", "rose", "hoa hồng"));
+
+        // Find which category user is asking about
+        String matchedCategory = null;
+        for (Map.Entry<String, List<String>> entry : categoryKeywords.entrySet()) {
+            for (String keyword : entry.getValue()) {
+                if (lowerMessage.contains(keyword)) {
+                    matchedCategory = entry.getKey();
+                    break;
+                }
+            }
+            if (matchedCategory != null)
+                break;
+        }
+
+        // Generic flower keywords
+        List<String> genericKeywords = Arrays.asList(
+                "hồng", "hướng dương", "lan", "ly", "cúc", "tulip", "baby", "hoa",
+                "bó", "giỏ", "hộp", "lẵng", "valentine", "ngày lễ");
+
+        boolean hasProductKeyword = genericKeywords.stream().anyMatch(lowerMessage::contains);
+        boolean hasPriceQuery = maxPrice != null || minPrice != null;
+        boolean hasCategoryQuery = matchedCategory != null;
+
+        if (hasCategoryQuery || hasProductKeyword || hasPriceQuery) {
+            final String finalMatchedCategory = matchedCategory;
+
+            // Find matching products - PRIORITIZE CATEGORY MATCH
+            List<Product> matchingProducts = productRepository.findAll().stream()
                     .filter(Product::isActive)
-                    .filter(p -> keywords.stream().anyMatch(k -> p.getName().toLowerCase().contains(k)))
-                    .limit(3)
-                    .forEach(p -> {
-                        suggestions.add(ChatResponse.ProductSuggestion.builder()
-                                .id(p.getId())
-                                .name(p.getName())
-                                .slug(p.getSlug())
-                                .thumbnail(p.getThumbnail())
-                                .price(formatPrice(p.getPrice()))
-                                .salePrice(p.getSalePrice() != null ? formatPrice(p.getSalePrice()) : null)
-                                .build());
-                    });
+                    .filter(p -> {
+                        // Price filter
+                        if (maxPrice != null && p.getCurrentPrice().compareTo(maxPrice) > 0) {
+                            return false;
+                        }
+                        if (minPrice != null && p.getCurrentPrice().compareTo(minPrice) < 0) {
+                            return false;
+                        }
+
+                        String productName = p.getName().toLowerCase();
+                        String categoryName = p.getCategory() != null
+                                ? p.getCategory().getName().toLowerCase()
+                                : "";
+
+                        // If user asked for specific category, ONLY show products from that category
+                        if (finalMatchedCategory != null) {
+                            return categoryName.contains(finalMatchedCategory) ||
+                                    categoryKeywords.get(finalMatchedCategory).stream()
+                                            .anyMatch(k -> productName.contains(k) || categoryName.contains(k));
+                        }
+
+                        // Otherwise use generic keyword matching
+                        if (hasProductKeyword) {
+                            return genericKeywords.stream()
+                                    .anyMatch(k -> productName.contains(k) || categoryName.contains(k));
+                        }
+
+                        return true;
+                    })
+                    .sorted((a, b) -> a.getCurrentPrice().compareTo(b.getCurrentPrice()))
+                    .limit(4)
+                    .collect(Collectors.toList());
+
+            for (Product p : matchingProducts) {
+                suggestions.add(ChatResponse.ProductSuggestion.builder()
+                        .id(p.getId())
+                        .name(p.getName())
+                        .slug(p.getSlug())
+                        .thumbnail(p.getThumbnail())
+                        .price(formatPrice(p.getPrice()))
+                        .salePrice(p.getSalePrice() != null ? formatPrice(p.getSalePrice()) : null)
+                        .build());
+            }
+
+            log.info("Product suggestions for '{}': {} products found (category={}, maxPrice={}, minPrice={})",
+                    message, suggestions.size(), matchedCategory, maxPrice, minPrice);
         }
 
         return suggestions;
+    }
+
+    /**
+     * Extract max price from message like "dưới 200000" or "tối đa 500k"
+     */
+    private BigDecimal extractMaxPrice(String message) {
+        // Pattern: dưới/under + số | tối đa + số | < số | số trở xuống
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "(?:dưới|under|tối đa|\\<)\\s*(\\d+(?:[.,]\\d+)?)(k|nghìn|ngàn)?|" +
+                        "(\\d+(?:[.,]\\d+)?)(k|nghìn|ngàn)?\\s*(?:trở xuống|đổ lại)");
+        java.util.regex.Matcher matcher = pattern.matcher(message);
+
+        if (matcher.find()) {
+            String numStr = matcher.group(1) != null ? matcher.group(1) : matcher.group(3);
+            String unit = matcher.group(2) != null ? matcher.group(2) : matcher.group(4);
+
+            if (numStr != null) {
+                numStr = numStr.replace(",", ".");
+                BigDecimal value = new BigDecimal(numStr);
+                if (unit != null && unit.matches("k|nghìn|ngàn")) {
+                    value = value.multiply(new BigDecimal(1000));
+                }
+                return value;
+            }
+        }
+
+        // Check for "giá rẻ" = under 300k
+        if (message.contains("giá rẻ") || message.contains("rẻ")) {
+            return new BigDecimal("300000");
+        }
+
+        return null;
+    }
+
+    /**
+     * Extract min price from message like "từ 200000" or "trên 500k"
+     */
+    private BigDecimal extractMinPrice(String message) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                "(?:từ|trên|over|tối thiểu|\\>)\\s*(\\d+(?:[.,]\\d+)?)(k|nghìn|ngàn)?|" +
+                        "(\\d+(?:[.,]\\d+)?)(k|nghìn|ngàn)?\\s*(?:trở lên)");
+        java.util.regex.Matcher matcher = pattern.matcher(message);
+
+        if (matcher.find()) {
+            String numStr = matcher.group(1) != null ? matcher.group(1) : matcher.group(3);
+            String unit = matcher.group(2) != null ? matcher.group(2) : matcher.group(4);
+
+            if (numStr != null) {
+                numStr = numStr.replace(",", ".");
+                BigDecimal value = new BigDecimal(numStr);
+                if (unit != null && unit.matches("k|nghìn|ngàn")) {
+                    value = value.multiply(new BigDecimal(1000));
+                }
+                return value;
+            }
+        }
+
+        return null;
     }
 
     // ==================== Staff Support ====================
