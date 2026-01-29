@@ -374,4 +374,36 @@ public class ProductServiceImpl implements ProductService {
                 })
                 .toList();
     }
+
+    /**
+     * Đồng bộ số lượng đã bán từ OrderItem vào Product
+     * Chạy mỗi khi khởi động ứng dụng để đảm bảo dữ liệu đúng
+     */
+    @jakarta.annotation.PostConstruct
+    @Transactional
+    public void syncProductSoldCounts() {
+        log.info("Starting synchronization of product sold counts...");
+        try {
+            // Lấy thống kê số lượng bán từ repository
+            List<Object[]> soldStats = productRepository.findAllSoldProductStats();
+
+            int updatedCount = 0;
+            for (Object[] stat : soldStats) {
+                Long productId = (Long) stat[0];
+                Number totalSold = (Number) stat[1]; // SUM returns Long or BigDecimal
+
+                if (productId != null && totalSold != null) {
+                    Product product = productRepository.findById(productId).orElse(null);
+                    if (product != null) {
+                        product.setSoldCount(totalSold.intValue());
+                        productRepository.save(product);
+                        updatedCount++;
+                    }
+                }
+            }
+            log.info("Successfully synced sold counts for {} products", updatedCount);
+        } catch (Exception e) {
+            log.error("Failed to sync product sold counts: {}", e.getMessage());
+        }
+    }
 }

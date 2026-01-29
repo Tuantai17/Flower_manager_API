@@ -95,6 +95,11 @@ public class StockServiceImpl implements StockService {
 
         int newStock = currentStock - quantity;
         product.setStockQuantity(newStock);
+
+        // Cập nhật số lượng đã bán
+        int currentSold = product.getSoldCount() != null ? product.getSoldCount() : 0;
+        product.setSoldCount(currentSold + quantity);
+
         productRepository.save(product);
 
         // Ghi lịch sử
@@ -109,8 +114,8 @@ public class StockServiceImpl implements StockService {
                 .build();
         stockHistoryRepository.save(history);
 
-        log.info("Decreased stock for product {}: {} -> {} (order: {})",
-                product.getName(), currentStock, newStock, orderCode);
+        log.info("Decreased stock for product {}: {} -> {} (order: {}). Sold count: {} -> {}",
+                product.getName(), currentStock, newStock, orderCode, currentSold, currentSold + quantity);
     }
 
     @Override
@@ -123,6 +128,12 @@ public class StockServiceImpl implements StockService {
         int newStock = currentStock + quantity;
 
         product.setStockQuantity(newStock);
+
+        // Cập nhật lại số lượng đã bán (trừ đi)
+        int currentSold = product.getSoldCount() != null ? product.getSoldCount() : 0;
+        int newSold = Math.max(0, currentSold - quantity);
+        product.setSoldCount(newSold);
+
         productRepository.save(product);
 
         // Ghi lịch sử
@@ -137,8 +148,8 @@ public class StockServiceImpl implements StockService {
                 .build();
         stockHistoryRepository.save(history);
 
-        log.info("Restored stock for product {}: {} -> {} (order: {})",
-                product.getName(), currentStock, newStock, orderCode);
+        log.info("Restored stock for product {}: {} -> {} (order: {}). Sold count: {} -> {}",
+                product.getName(), currentStock, newStock, orderCode, currentSold, newSold);
     }
 
     @Override

@@ -287,4 +287,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                         "ORDER BY SUM(oi.quantity) DESC " +
                         "LIMIT :limit")
         List<Object[]> findTopSellingProductStats(@Param("limit") int limit);
+
+        /**
+         * Lấy thống kê số lượng bán của TẤT CẢ sản phẩm đã bán được
+         * Trả về: [productId, totalSold]
+         */
+        @Query("SELECT oi.product.id, SUM(oi.quantity) " +
+                        "FROM OrderItem oi " +
+                        "JOIN oi.order o " +
+                        "WHERE o.status IN (com.flower.manager.enums.OrderStatus.COMPLETED, com.flower.manager.enums.OrderStatus.DELIVERED) "
+                        +
+                        "GROUP BY oi.product.id")
+        List<Object[]> findAllSoldProductStats();
 }
